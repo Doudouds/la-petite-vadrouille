@@ -1,0 +1,465 @@
+{
+  "GR1": {
+    "relationId": 386891,
+    "displayName": "Tour de l'Île-de-France",
+    "summary": "Boucle francilienne autour de Paris."
+  },
+  "GR2": {
+    "relationId": 1959668,
+    "displayName": "Au fil de la Seine",
+    "summary": "Dijon - Le Havre."
+  },
+  "GR3": {
+    "relationId": 2704569,
+    "displayName": "La Loire sauvage à pied",
+    "summary": "La Baule - Mont Mézenc."
+  },
+  "GR4": {
+    "relationId": 7457566,
+    "displayName": "De la Méditerranée à l'Océan",
+    "summary": "Royan - Grasse.",
+    "namePatterns": [
+      "Sentier de Royan à Grasse",
+      "Royan",
+      "Grasse"
+    ]
+  },
+  "GR6": {
+    "relationId": 9870817,
+    "displayName": "Des Alpes à la Nouvelle Aquitaine",
+    "summary": "Arcachon - Saint-Paul-sur-Ubaye.",
+    "officialKm": 1360
+  },
+  "GR7": {
+    "relationId": 11193072,
+    "displayName": "Des Vosges aux Pyrénées",
+    "summary": "Ballon d'Alsace - Andorre-la-Vieille."
+  },
+  "GR9": {
+    "relationId": 10670467,
+    "displayName": "Du Jura à la Méditerranée",
+    "summary": "Saint-Amour - Saint-Pons-les-Mûres."
+  },
+  "GR10": {
+    "relationId": 7411272,
+    "displayName": "La traversée des Pyrénées",
+    "summary": "Hendaye - Banyuls-sur-Mer."
+  },
+  "GR11": {
+    "relationId": 355981,
+    "displayName": "Grand Tour de Paris",
+    "summary": "Boucle francilienne complémentaire du GR1."
+  },
+  "GR12": {
+    "relationId": 12825429,
+    "displayName": "Amsterdam - Paris",
+    "summary": "Itinéraire international Amsterdam - Bruxelles - Paris.",
+    "clipToMetroFrance": false,
+    "placeRelationIds": [
+      13630746,
+      14893806,
+      13632,
+      12825428
+    ]
+  },
+  "GR15": {
+    "relationId": 15989093,
+    "displayName": "La Vallée de la Marne",
+    "summary": "Maisons-Alfort - Lac du Der."
+  },
+  "GR20": {
+    "relationId": 101692,
+    "displayName": "GR 20",
+    "summary": "Calenzana - Conca."
+  },
+  "GR21": {
+    "relationIds": [
+      2167510,
+      14868378
+    ],
+    "displayName": "Sentier des Falaises de la Côte d'Albâtre",
+    "summary": "Le Havre - Le Tréport."
+  },
+  "GR22": {
+    "relationId": 451519,
+    "displayName": "De Paris au Mont-Saint-Michel",
+    "summary": "Traversée de l'Île-de-France vers la baie du Mont-Saint-Michel."
+  },
+  "GR23": {
+    "relationId": 14752331,
+    "displayName": "De La Bouille à Honfleur",
+    "summary": "Boucles et belvédères de la basse vallée de la Seine."
+  },
+  "GR34": {
+    "displayName": "Sentier des Douaniers",
+    "summary": "Grand sentier littoral breton.",
+    "namePatterns": [
+      "Sentier des Douaniers",
+      "Chemin des Douaniers"
+    ]
+  },
+  "GR36": {
+    "relationId": 10805122,
+    "displayName": "De la Manche aux Pyrénées",
+    "summary": "Grande traversée nord-sud."
+  },
+  "GR39": {
+    "relationId": 1824726,
+    "displayName": "Mont-Saint-Michel - Guérande",
+    "summary": "De baie à baie."
+  },
+  "GR41": {
+    "displayName": "Le Cher",
+    "summary": "Tours - La Celle."
+  },
+  "GR44": {
+    "relationId": 13873396,
+    "orderedRelationIds": [
+      13038404,
+      15956315,
+      18446292,
+      2791206
+    ],
+    "displayName": "Tour des Cévennes méridionales",
+    "summary": "Boucle dans les Cévennes."
+  },
+  "GR46": {
+    "relationId": 6439515,
+    "displayName": "De Tours à Toulouse",
+    "summary": "À travers le Lot et le Quercy."
+  },
+  "GR51": {
+    "relationId": 11087038,
+    "displayName": "Balcons de la Méditerranée",
+    "summary": "Marseille - Menton."
+  },
+  "GR52": {
+    "relationId": 3315112,
+    "displayName": "Traversée du Mercantour",
+    "summary": "Entraunes - Menton."
+  },
+  "GR57": {
+    "relationId": 16101643,
+    "displayName": "Sentier du Doubs",
+    "summary": "Vallée du Doubs jusqu'au Rhin."
+  },
+  "GR59": {
+    "relationId": 12827833,
+    "displayName": "Du Ballon d'Alsace à Culoz",
+    "summary": "Liaison entre les Vosges méridionales et le Bugey."
+  },
+  "GR60": {
+    "relationId": 13880221,
+    "displayName": "Chemin du signal de Mailhebiau à Saint-Mathieu-de-Tréviers",
+    "summary": "Cévennes et Causses."
+  },
+  "GR62": {
+    "relationId": 2787404,
+    "displayName": "Conques - Pont-d'Hérault",
+    "summary": "Cévennes et vallée du Lot."
+  },
+  "GR65": {
+    "relationId": 11959152,
+    "displayName": "Chemin de Saint-Jacques via Le Puy",
+    "summary": "Itinéraire Via Podiensis."
+  },
+  "GR68": {
+    "relationId": 5869504,
+    "orderedRelationIds": [
+      17011457,
+      17011456,
+      20102445,
+      20101970,
+      18446292
+    ],
+    "displayName": "Tour du Mont Lozère",
+    "summary": "Boucle autour du mont Lozère."
+  },
+  "GR70": {
+    "relationId": 223039,
+    "displayName": "Chemin de Stevenson",
+    "summary": "Le Monastier-sur-Gazeille - Saint-Jean-du-Gard."
+  },
+  "GR72": {
+    "relationIds": [
+      13038410,
+      13038411
+    ],
+    "displayName": "Du Col du Bez à Barre-des-Cévennes",
+    "summary": "Traversée cévenole."
+  },
+  "GR97": {
+    "displayName": "Tour du Luberon",
+    "summary": "Boucle autour du massif du Luberon.",
+    "gpxUrl": "https://www.visugpx.com/download.php?id=G53NtwJUQq"
+  },
+  "GR98": {
+    "relationId": 2681053,
+    "displayName": "Marseille - Cassis",
+    "summary": "Sentier des Calanques."
+  },
+  "GR99": {
+    "relationId": 9812928,
+    "orderedRelationIds": [
+      15966597,
+      18222335,
+      15966595
+    ],
+    "displayName": "De Revest-les-Eaux à Trigance",
+    "summary": "Var et gorges du Verdon.",
+    "gpxUrl": "https://www.gr-infos.com/divers/gpx/gr99.gpx"
+  },
+  "GR120": {
+    "relationId": 2139379,
+    "displayName": "Sentier de la Côte d'Opale",
+    "summary": "Bray-Dunes - Berck-sur-Mer."
+  },
+  "GR121": {
+    "orderedRelationIds": [
+      6263294,
+      2133138
+    ],
+    "displayName": "De Bon-Secours à Equihen-Plage",
+    "summary": "Traversée du Hainaut, de l'Artois et de la Côte d'Opale.",
+    "clipToMetroFrance": false
+  },
+  "GR122": {
+    "relationId": 2454598,
+    "displayName": "De Bon-Secours à Son",
+    "summary": "Traversée du Hainaut, de l'Avesnois et de la Thiérache.",
+    "clipToMetroFrance": false
+  },
+  "GR123": {
+    "relationId": 5370873,
+    "displayName": "Tour de la Thiérache",
+    "summary": "Picardie / Aisne."
+  },
+  "GR124": {
+    "relationIds": [
+      8313229,
+      5372702
+    ],
+    "displayName": "Tour de l'Avesnois",
+    "summary": "Hauts-de-France."
+  },
+  "GR125": {
+    "relationId": 2143275,
+    "displayName": "Sentier de la Sambre",
+    "summary": "Hauts-de-France."
+  },
+  "GR128": {
+    "relationId": 2132778,
+    "displayName": "Mer du Nord - Aix-la-Chapelle",
+    "summary": "Section française."
+  },
+  "GR131": {
+    "relationId": 2866803,
+    "displayName": "Sentier des Forts",
+    "summary": "Région parisienne."
+  },
+  "GR132": {
+    "relationId": 3810330,
+    "displayName": "De La Sausselière à Chaumot",
+    "summary": "Du Loiret à l'Yonne."
+  },
+  "GR145": {
+    "displayName": "Via Francigena",
+    "summary": "Calais - frontière suisse.",
+    "relationIds": [
+      2918033,
+      4126294,
+      4126295,
+      8312991,
+      15976218
+    ],
+    "namePatterns": [
+      "Via Francigena",
+      "Francigena"
+    ]
+  },
+  "GR221": {
+    "relationId": 13524440,
+    "displayName": "Le Bocage Normand",
+    "summary": "Coutances - Pont-d'Ouilly."
+  },
+  "GR223": {
+    "relationId": 1731774,
+    "displayName": "Littoral de la Normandie",
+    "summary": "De l'estuaire de la Seine au Cotentin."
+  },
+  "GR300": {
+    "relationId": 16195169,
+    "displayName": "Chemin de Saint-Michel",
+    "summary": "De Sancoins au Puy-en-Velay."
+  },
+  "GR400": {
+    "relationId": 10699408,
+    "displayName": "Tour des volcans du Cantal",
+    "summary": "Boucle volcanique."
+  },
+  "GR653": {
+    "relationId": 11813130,
+    "displayName": "Voie d'Arles",
+    "summary": "Arles - Somport.",
+    "namePatterns": [
+      "Voie d'Arles",
+      "Via Tolosana",
+      "Tolosana"
+    ]
+  },
+  "GR654": {
+    "relationId": 14900298,
+    "displayName": "Voie de Vézelay",
+    "summary": "Vézelay - Saint-Jean-Pied-de-Port.",
+    "namePatterns": [
+      "Voie de Vézelay",
+      "Via Lemovicensis",
+      "Lemovicensis"
+    ]
+  },
+  "GR655": {
+    "relationId": 187781,
+    "displayName": "Voie de Tours",
+    "summary": "Paris - Saint-Jean-Pied-de-Port.",
+    "namePatterns": [
+      "Voie de Tours"
+    ]
+  },
+  "GR700": {
+    "relationId": 8289243,
+    "displayName": "Voie Régordane",
+    "summary": "Le Puy-en-Velay - Saint-Gilles.",
+    "namePatterns": [
+      "Voie Régordane",
+      "Voie Regordane",
+      "Régordane",
+      "Regordane"
+    ]
+  },
+  "GR5": {
+    "relationId": 2704286,
+    "displayName": "GR5 – section Alpes",
+    "summary": "Léman – Méditerranée par les Alpes."
+  },
+  "GR8": {
+    "displayName": "De la Loire à la Sèvre",
+    "summary": "Saint-Brevin-les-Pins - Charron.",
+    "gpxUrl": "https://www.gr-infos.com/divers/gpx/gr8.gpx"
+  },
+  "GR14": {
+    "relationIds": [
+      10832894,
+      2929186
+    ],
+    "displayName": "Sentier des Ardennes",
+    "summary": "Paris – Malmedy via les Ardennes."
+  },
+  "GR16": {
+    "relationIds": [
+      197843,
+      12895038
+    ],
+    "displayName": "Vallée de la Semois",
+    "summary": "Ardennes franco-belges."
+  },
+  "GR26": {
+    "relationId": 1731864,
+    "displayName": "Sentier de Normandie",
+    "summary": "Vernon – Bagnoles-de-l'Orne."
+  },
+  "GR78": {
+    "relationId": 2785399,
+    "displayName": "Chemin du Piémont pyrénéen",
+    "summary": "Carcassonne – Saint-Jean-Pied-de-Port (Saint-Jacques)."
+  },
+  "GR80": {
+    "displayName": "Tour de l'Île d'Yeu",
+    "summary": "Boucle littorale autour de l'île d'Yeu."
+  },
+  "GR92": {
+    "relationId": 6158468,
+    "orderedRelationIds": [
+      12075730,
+      12075729,
+      12075728,
+      12075727,
+      12075726,
+      12075732,
+      12075735,
+      12075768,
+      12075767
+    ],
+    "displayName": "Préalpes de Castellane",
+    "summary": "Provence intérieure."
+  },
+  "GR107": {
+    "relationIds": [
+      18813327,
+      18892669
+    ],
+    "displayName": "Chemin des Bonshommes",
+    "summary": "Foix – Berga (Pyrénées cathares)."
+  },
+  "GR510": {
+    "relationId": 2366584,
+    "displayName": "Balcons des Préalpes du Sud",
+    "summary": "Alpes-Maritimes."
+  },
+  "GR531": {
+    "relationId": 9079172,
+    "displayName": "Vosges – Jura",
+    "summary": "Liaison alsacienne."
+  },
+  "GR532": {
+    "relationId": 2785102,
+    "displayName": "Sentier des crêtes vosgiennes (variante)",
+    "summary": "Vosges."
+  },
+  "GR412": {
+    "relationId": 3389715,
+    "displayName": "Sentier du Cézallier",
+    "summary": "Auvergne."
+  },
+  "GR430": {
+    "displayName": "Chemin de Saint-Régis",
+    "summary": "Boucle au départ du Puy-en-Velay via Haute-Loire et Ardèche.",
+    "gpxUrl": "https://www.gr-infos.com/divers/gpx/gr430.gpx"
+  },
+  "GR470": {
+    "relationId": 3377491,
+    "displayName": "Sources et gorges de l'Allier",
+    "summary": "Lozère / Haute-Loire."
+  },
+  "GR441": {
+    "relationId": 7553559,
+    "displayName": "Tour de la chaîne des Puys",
+    "summary": "Volcans d'Auvergne, UNESCO."
+  },
+  "GR100": {
+    "relationId": 8289208,
+    "displayName": "Voie domitienne",
+    "summary": "Voie historique en Languedoc."
+  },
+  "GR104": {
+    "relationId": 368453,
+    "displayName": "Chemin de Piémont (variante)",
+    "summary": "Pyrénées orientales."
+  },
+  "GR101": {
+    "relationId": 4008099,
+    "displayName": "De Nogaro au col de Saucède",
+    "summary": "Du Gers au Béarn par l'ouest de Bigorre."
+  },
+  "GR201": {
+    "relationId": 5183682,
+    "orderedRelationIds": [
+      20617651,
+      20616213,
+      20613679,
+      20616211,
+      20616214
+    ],
+    "displayName": "Balcon du Léman",
+    "summary": "Haute-Savoie."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "la-petite-vadrouille-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Packaging Android et préparation Play Store pour l'application La petite vadrouille.",
+  "packageManager": "npm@10.9.3",
+  "scripts": {
+    "mobile:prepare": "node ./scripts/prepare-mobile-web.mjs",
+    "android:add": "npm run mobile:prepare && npx cap add android",
+    "android:assets": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-android-branding.ps1",
+    "android:sync": "npm run android:assets && npm run mobile:prepare && npx cap sync android",
+    "android:open": "npm run android:sync && npx cap open android",
+    "android:debug": "npm run android:sync && node ./scripts/run-gradle.mjs assembleDebug",
+    "android:bundle": "npm run android:sync && node ./scripts/run-gradle.mjs bundleRelease",
+    "android:doctor": "node ./scripts/check-mobile-release.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.4"
+  }
+}

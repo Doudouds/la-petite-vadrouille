@@ -1,0 +1,14 @@
+node_modules/
+mobile-web/
+
+android/.gradle/
+android/build/
+android/captures/
+android/local.properties
+android/app/build/
+
+*.jks
+*.keystore
+keystore.properties
+
+.idea/

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Explorez les GR de France et ouvrez chaque tracé comme une application installable sur Android." />
+  <meta name="application-name" content="La petite vadrouille" />
+  <meta name="theme-color" content="#1b5e20" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="La petite vadrouille" />
+  <title>La petite vadrouille – Les GR de France</title>
+  <link rel="icon" href="logo.png" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css?v=20260521" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-main">
+      <a class="site-logo-link" href="index.html" aria-label="Retour à l'accueil">
+        <img class="site-logo" src="logo.png" alt="Logo botte de sept lieues" />
+      </a>
+      <div class="site-header-copy">
+        <h1>La petite vadrouille</h1>
+        <p>Cliquez sur un sentier pour afficher son tracé GPS sur la carte.</p>
+      </div>
+      <div class="site-header-actions">
+        <button type="button" class="install-app-button" data-action="install-app" hidden>Installer l'app</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="catalog-layout">
+    <aside class="region-panel">
+      <div class="region-card">
+        <div class="region-card-header">
+          <div>
+            <h2>Filtrer par région</h2>
+            <p>Choisissez une région sur la mini-carte pour filtrer les GR présents sur ce territoire.</p>
+          </div>
+          <button type="button" class="region-reset" id="clear-region">Tout voir</button>
+        </div>
+        <div class="region-map-wrap">
+          <svg id="region-map" class="region-map" viewBox="0 0 360 500" role="img" aria-label="Carte colorée des régions françaises métropolitaines"></svg>
+        </div>
+        <div class="region-status" id="region-status">Cliquez sur une région pour filtrer la liste.</div>
+      </div>
+    </aside>
+
+    <section class="list-panel">
+      <div class="search-bar">
+        <label class="search-label" for="search">Nom ou numéro du GR</label>
+        <input type="search" id="search" placeholder="Écrivez le nom ou le numéro d'un GR..." />
+        <p class="search-hint">Le filtre s'applique au fur et à mesure que vous tapez.</p>
+      </div>
+      <div class="results-meta" id="results-meta"></div>
+      <div class="gr-grid" id="grid"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Bonne vadrouille sur les sentiers de France !</p>
+    <a href="privacy.html">Politique de confidentialité</a>
+  </footer>
+
+  <script src="gr-metadata.js?v=20260501"></script>
+  <script src="data.js?v=20260501"></script>
+  <script src="region-geometry.js?v=20260501"></script>
+  <script src="gr-region-cache.js?v=20260501"></script>
+  <script src="gr-route-cache-manifest.js?v=20260501"></script>
+  <script src="index.js?v=20260501"></script>
+  <script src="pwa.js?v=20260521"></script>
+</body>
+</html>

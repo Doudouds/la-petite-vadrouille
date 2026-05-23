@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Botte de sept lieues</title>
+  <desc id="logoDesc">Logo de randonnee avec une botte elancee et des ailes rappelant la botte de sept lieues.</desc>
+  <defs>
+    <linearGradient id="bootBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe5a8"/>
+      <stop offset="55%" stop-color="#f4b552"/>
+      <stop offset="100%" stop-color="#d77b1f"/>
+    </linearGradient>
+    <linearGradient id="bootSole" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5c2a13"/>
+      <stop offset="100%" stop-color="#2e130a"/>
+    </linearGradient>
+    <linearGradient id="wingFeather" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fff4"/>
+      <stop offset="100%" stop-color="#d5f0cf"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#13361f" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path d="M24 108c12 0 26-3 39-9l14-6c4-2 7-6 8-10l3-9c2-7 2-15 0-23L82 29c-2-8 4-15 12-15h29c5 0 9 3 11 8l5 13c1 3 4 6 7 7l18 7c8 3 13 10 13 18v10c0 7-4 13-10 16l-17 8c-4 2-8 3-13 3H24Z" fill="url(#bootBody)" stroke="#6e3d18" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M21 107h121c7 0 16-2 24-6l17-8c5-2 9 1 9 6v4c0 7-5 13-12 14l-23 4c-11 2-22 3-33 3H30c-10 0-17-7-17-16 0-1 0-1 0-2 1-2 4-3 8-3Z" fill="url(#bootSole)"/>
+    <path d="M101 24h25" fill="none" stroke="#fff4d8" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
+    <path d="M105 37h29" fill="none" stroke="#fff4d8" stroke-width="5" stroke-linecap="round" opacity="0.74"/>
+    <path d="M111 50h31" fill="none" stroke="#fff4d8" stroke-width="5" stroke-linecap="round" opacity="0.68"/>
+    <path d="M118 63h29" fill="none" stroke="#fff4d8" stroke-width="5" stroke-linecap="round" opacity="0.62"/>
+
+    <g transform="translate(40 12) rotate(-11 0 0)">
+      <path d="M0 39c14-1 26-6 34-14-1 11-8 20-20 27 16-2 30-8 41-19-4 14-16 24-34 31" fill="none" stroke="#29643e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M5 39c11-1 22-5 31-12-3 7-8 12-16 17 11-1 22-5 31-13-4 8-12 14-24 20" fill="none" stroke="url(#wingFeather)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <path d="M26 101c18 0 35-2 49-8" fill="none" stroke="#9c4f1c" stroke-width="4" stroke-linecap="round" opacity="0.65"/>
+    <path d="M33 16c-10 3-18 10-24 19" fill="none" stroke="#cce8c7" stroke-width="5" stroke-linecap="round" opacity="0.85"/>
+    <path d="M20 30c-7 2-12 6-16 11" fill="none" stroke="#eaf8e4" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  </g>
+</svg>

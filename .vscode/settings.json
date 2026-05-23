@@ -1,0 +1,9 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "chat.tools.terminal.autoApprove": {
+        "/^C:/Users/212806999\\.HCAD/AppData/Local/Microsoft/WindowsApps/python3\\.13\\.exe -m http\\.server 8010$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

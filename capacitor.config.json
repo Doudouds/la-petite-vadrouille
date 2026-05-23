@@ -1,0 +1,20 @@
+{
+  "appId": "fr.lapetitevadrouille.metropole",
+  "appName": "La petite vadrouille",
+  "webDir": "mobile-web",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#f5f7f5",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#1B5E20"
+    }
+  }
+}

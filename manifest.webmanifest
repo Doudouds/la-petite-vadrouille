@@ -1,0 +1,28 @@
+{
+  "id": "./",
+  "name": "La petite vadrouille",
+  "short_name": "La petite vadrouille",
+  "description": "Carte des GR de France avec consultation des tracés et préparation d'étapes, installable sur Android.",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f7f5",
+  "theme_color": "#1b5e20",
+  "categories": ["travel", "navigation", "sports"],
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./site-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

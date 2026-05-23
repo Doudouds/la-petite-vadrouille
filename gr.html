@@ -1,0 +1,2414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Consultez le tracé d'un GR, préparez une étape et installez l'application sur Android." />
+  <meta name="application-name" content="La petite vadrouille" />
+  <meta name="theme-color" content="#1b5e20" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="La petite vadrouille" />
+  <title>La petite vadrouille – Carte</title>
+  <link rel="icon" href="logo.png" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
+  <link rel="stylesheet" href="style.css?v=20260521" />
+</head>
+<body>
+  <header class="site-header site-header-route">
+    <a class="back" href="index.html">&larr; Retour à la liste</a>
+    <div class="site-header-main">
+      <a class="site-logo-link" href="index.html" aria-label="Retour à l'accueil">
+        <img class="site-logo" src="logo.png" alt="Logo botte de sept lieues" />
+      </a>
+      <div class="site-header-copy">
+        <h1 id="title">Chargement...</h1>
+      </div>
+      <div class="site-header-actions">
+        <button type="button" class="install-app-button" data-action="install-app" hidden>Installer l'app</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="status">Chargement du tracé...</div>
+  <aside id="route-planner" class="route-planner is-collapsed" aria-live="polite">
+    <button type="button" id="route-planner-toggle" class="route-planner-toggle" aria-expanded="false" aria-controls="route-planner-card" title="Ouvrir le planificateur">
+      <span class="route-planner-toggle-icon" aria-hidden="true">⚙</span>
+      <span class="visually-hidden">Ouvrir le planificateur</span>
+    </button>
+    <div id="route-planner-card" class="route-planner-card">
+      <div class="route-planner-card-header">
+        <h2>Etape entre deux points</h2>
+        <button type="button" id="route-planner-close" class="route-planner-close-button">Revenir à la carte</button>
+      </div>
+      <p class="route-planner-intro">Choisissez votre départ et votre arrivée soit par ville, soit en activant la sélection directe sur la carte.</p>
+
+      <div class="route-planner-field">
+        <label for="city-start">Ville de départ</label>
+        <input id="city-start" type="search" autocomplete="off" placeholder="Ex. Versailles" />
+        <div class="route-planner-actions">
+          <button type="button" class="route-pick-button" data-role="start" data-action="pick-map">Choisir sur la carte</button>
+          <button type="button" class="route-clear-button" data-role="start" data-action="clear-selection">Effacer</button>
+        </div>
+        <div id="route-picker-start-hint" class="route-picker-hint"></div>
+        <div id="city-start-list" class="city-choice-list"></div>
+      </div>
+
+      <div class="route-planner-divider" aria-hidden="true"></div>
+
+      <div class="route-planner-field">
+        <label for="city-end">Ville d'arrivée</label>
+        <input id="city-end" type="search" autocomplete="off" placeholder="Ex. Rambouillet" />
+        <div class="route-planner-actions">
+          <button type="button" class="route-pick-button" data-role="end" data-action="pick-map">Choisir sur la carte</button>
+          <button type="button" class="route-clear-button" data-role="end" data-action="clear-selection">Effacer</button>
+        </div>
+        <div id="route-picker-end-hint" class="route-picker-hint"></div>
+        <div id="city-end-list" class="city-choice-list"></div>
+      </div>
+
+      <div class="route-planner-divider" aria-hidden="true"></div>
+
+      <div class="route-planner-field route-planner-days">
+        <label for="trip-days">Nombre de jours prévu (optionnel)</label>
+        <input id="trip-days" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex. 4" />
+      </div>
+
+      <div id="route-planner-summary" class="route-planner-summary">
+        Chargez un tracé pour préparer votre étape.
+      </div>
+    </div>
+  </aside>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="gr-metadata.js?v=20260501"></script>
+  <script src="gr-route-cache-manifest.js?v=20260501"></script>
+  <script src="stations-sncf.js?v=20260501"></script>
+  <script src="pwa.js?v=20260521"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref') || 'GR1';
+    const nom = params.get('nom') || '';
+    const refKey = String(ref || '').replace(/\s+/g, '').toUpperCase();
+    const routeMeta = window.GR_ROUTE_METADATA?.[ref.toUpperCase()] || {};
+    const routeCacheManifest = window.GR_ROUTE_CACHE_MANIFEST || {};
+    const routeCacheEntry = routeCacheManifest.routes?.[refKey] || null;
+    const displayName = routeMeta.displayName || routeCacheEntry?.displayName || nom;
+
+    function updateRouteTitle(nextDisplayName) {
+      const routeLabel = `${ref}${nextDisplayName ? ' – ' + nextDisplayName : ''}`;
+      document.getElementById('title').textContent = routeLabel;
+      document.title = nextDisplayName
+        ? `${routeLabel} | La petite vadrouille`
+        : `${ref} | La petite vadrouille`;
+    }
+
+    updateRouteTitle(displayName);
+
+    const METRO_VIEW = {
+      center: [46.6, 2.5],
+      zoom: 6,
+      southWest: [40.4, -8.8],
+      northEast: [53.2, 11.8]
+    };
+
+    function getPlannerAwareFitBoundsOptions() {
+      const plannerWidth = window.innerWidth > 980 ? routePlanner?.offsetWidth || 0 : 0;
+      if (!plannerWidth) {
+        return { padding: [20, 20] };
+      }
+
+      return {
+        paddingTopLeft: [plannerWidth + 48, 20],
+        paddingBottomRight: [24, 20]
+      };
+    }
+
+    // Carte centrée et bornée sur la France métropolitaine
+    const map = L.map('map', {
+      maxBounds: [METRO_VIEW.southWest, METRO_VIEW.northEast],
+      maxBoundsViscosity: 0.85,
+      preferCanvas: true
+    }).setView(METRO_VIEW.center, METRO_VIEW.zoom);
+    const mapRenderer = L.canvas({ padding: 0.5 });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 20,
+      updateWhenZooming: false,
+      keepBuffer: 3,
+      attribution: '&copy; OpenStreetMap contributors | &copy; CARTO'
+    }).addTo(map);
+
+    const status = document.getElementById('status');
+    const routePlanner = document.getElementById('route-planner');
+    const routePlannerToggle = document.getElementById('route-planner-toggle');
+    const routePlannerClose = document.getElementById('route-planner-close');
+    const pageHeader = document.querySelector('header');
+    const startInput = document.getElementById('city-start');
+    const endInput = document.getElementById('city-end');
+    const daysInput = document.getElementById('trip-days');
+    const startList = document.getElementById('city-start-list');
+    const endList = document.getElementById('city-end-list');
+    const startHint = document.getElementById('route-picker-start-hint');
+    const endHint = document.getElementById('route-picker-end-hint');
+    const plannerSummary = document.getElementById('route-planner-summary');
+    const plannerState = {
+      cities: [],
+      startQuery: '',
+      endQuery: '',
+      startIndex: null,
+      endIndex: null,
+      startSelection: null,
+      endSelection: null,
+      days: '',
+      mapPickRole: null,
+      plannerOpen: false,
+      routeGeometry: null,
+      elevationProfile: null,
+      elevationStatus: 'idle',
+      elevationError: '',
+      elevationRequestId: 0,
+      routeHighlightLayer: null,
+      routeMarkerLayer: null,
+      mapPickHandler: null,
+      routeContextHandler: null,
+      routeContextPopup: null
+    };
+    const PLACE_LABELS = {
+      city: 'ville',
+      town: 'ville',
+      village: 'village'
+    };
+    const PLACE_PRIORITY = {
+      city: 0,
+      town: 1,
+      village: 2
+    };
+    const DEFAULT_CITY_SUGGESTION_COUNT = 10;
+    const STAGE_COLORS = ['#c62828', '#d84315', '#ef6c00', '#f4511e', '#b71c1c', '#e64a19'];
+    const ELEVATION_CACHE_VERSION = '20260521';
+    const ELEVATION_API_URL = 'https://api.open-meteo.com/v1/elevation';
+    const ELEVATION_BATCH_SIZE = 100;
+    const ELEVATION_TARGET_SAMPLE_COUNT = 360;
+    const ELEVATION_MIN_SAMPLE_SPACING_METERS = 250;
+    const ELEVATION_MAX_SAMPLE_SPACING_METERS = 3000;
+    const ELEVATION_NOISE_THRESHOLD_METERS = 4;
+    const ELEVATION_RETRY_LIMIT = 2;
+    const ELEVATION_RETRY_DELAY_MS = 350;
+
+    function syncRoutePageLayout() {
+      if (!pageHeader) {
+        return;
+      }
+
+      const headerHeight = Math.ceil(pageHeader.getBoundingClientRect().height);
+      document.documentElement.style.setProperty('--route-header-offset', `${headerHeight + 6}px`);
+    }
+
+    function updateRoutePlannerVisibility(isOpen) {
+      plannerState.plannerOpen = Boolean(isOpen);
+      routePlanner.classList.toggle('is-open', plannerState.plannerOpen);
+      routePlanner.classList.toggle('is-collapsed', !plannerState.plannerOpen);
+      routePlannerToggle.setAttribute('aria-expanded', String(plannerState.plannerOpen));
+      routePlannerToggle.setAttribute('title', plannerState.plannerOpen ? 'Revenir à la carte' : 'Ouvrir le planificateur');
+      routePlannerToggle.querySelector('.visually-hidden').textContent = plannerState.plannerOpen ? 'Revenir à la carte' : 'Ouvrir le planificateur';
+      map.getContainer().classList.toggle('route-planner-active', plannerState.plannerOpen);
+    }
+
+    syncRoutePageLayout();
+    window.addEventListener('resize', syncRoutePageLayout);
+    updateRoutePlannerVisibility(false);
+
+    // Requête Overpass : on cible les relations françaises du reseau national
+    // (`network=nwn`) portant ce ref, puis on extrait leurs troncons.
+    // Certains GR sont mieux identifies par une relation OSM precise :
+    // GR1, par exemple, est une superroute metropolitaine distincte du GR1
+    // local de Mayotte. D'autres, comme le GR6, n'exposent qu'un troncon
+    // local lors d'une recherche par aire ; on utilise donc un override si
+    // connu et on remonte aussi les superrelations parentes des troncons trouves.
+    const num = ref.replace(/^GR\s*/i, ''); // "1", "10", "65"...
+    const refRegex = `^GR ?0*${num}$`;
+    const FRANCE_AREA = 3602202162;
+    const override = routeMeta.relationId ? { relationId: routeMeta.relationId } : null;
+    const explicitRelationIds = Array.isArray(routeMeta.relationIds) ? routeMeta.relationIds : null;
+
+    function escapeOverpassRegex(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function buildNameSearchRegex() {
+      if (Array.isArray(routeMeta.namePatterns) && routeMeta.namePatterns.length) {
+        return routeMeta.namePatterns.join('|');
+      }
+
+      const cleanedName = displayName.replace(/\([^)]*\)/g, '').trim();
+      if (cleanedName.length < 4) {
+        return null;
+      }
+
+      return escapeOverpassRegex(cleanedName);
+    }
+
+    function buildOsmcSymbolRegex() {
+      if (Array.isArray(routeMeta.osmcSymbolPatterns) && routeMeta.osmcSymbolPatterns.length) {
+        return routeMeta.osmcSymbolPatterns.join('|');
+      }
+
+      if (!num) {
+        return null;
+      }
+
+      return `red::white_upper:red_lower:${escapeOverpassRegex(num)}:black$`;
+    }
+
+    const nameSearchRegex = buildNameSearchRegex();
+    const osmcSymbolRegex = buildOsmcSymbolRegex();
+
+    const primaryQuery = `
+[out:json][timeout:120];
+area(${FRANCE_AREA})->.fr;
+(
+  relation["route"="hiking"]["network"="nwn"]["ref"~"${refRegex}"](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["ref"~"${refRegex}"](area.fr);
+)->.matched;
+rel(br.matched)["type"="superroute"]["route"="hiking"]["network"="nwn"]["ref"~"${refRegex}"]->.parentSuperroutes;
+(
+  .matched;
+  .parentSuperroutes;
+)->.allMatched;
+(
+  .allMatched;
+  >>;
+);
+out geom;
+`.trim();
+
+    const fallbackQuery = override ? `
+[out:json][timeout:120];
+relation(${override.relationId})->.matched;
+(
+  .matched;
+  >>;
+);
+out geom;
+`.trim() : null;
+
+    const explicitRelationsQuery = explicitRelationIds && explicitRelationIds.length ? `
+[out:json][timeout:120];
+relation(id:${explicitRelationIds.join(',')})->.matched;
+(
+  .matched;
+  >>;
+);
+out geom;
+`.trim() : null;
+
+    const osmcFallbackQuery = osmcSymbolRegex ? `
+[out:json][timeout:120];
+area(${FRANCE_AREA})->.fr;
+(
+  relation["route"="hiking"]["network"="nwn"]["osmc:symbol"~"${osmcSymbolRegex}", i](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["osmc:symbol"~"${osmcSymbolRegex}", i](area.fr);
+)->.matched;
+rel(br.matched)["type"="superroute"]["route"="hiking"]["network"="nwn"]->.parentSuperroutes;
+(
+  .matched;
+  .parentSuperroutes;
+)->.allMatched;
+(
+  .allMatched;
+  >>;
+);
+out geom;
+`.trim() : null;
+
+    const nameFallbackQuery = nameSearchRegex ? `
+[out:json][timeout:120];
+area(${FRANCE_AREA})->.fr;
+(
+  relation["route"="hiking"]["network"="nwn"]["name"~"${nameSearchRegex}", i]["ref"~"${refRegex}"](area.fr);
+  relation["route"="hiking"]["network"="nwn"]["name"~"${nameSearchRegex}", i][!"ref"](area.fr);
+  relation["route"="hiking"]["network"="nwn"]["alt_name"~"${nameSearchRegex}", i]["ref"~"${refRegex}"](area.fr);
+  relation["route"="hiking"]["network"="nwn"]["alt_name"~"${nameSearchRegex}", i][!"ref"](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["name"~"${nameSearchRegex}", i]["ref"~"${refRegex}"](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["name"~"${nameSearchRegex}", i][!"ref"](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["alt_name"~"${nameSearchRegex}", i]["ref"~"${refRegex}"](area.fr);
+  relation["type"="superroute"]["route"="hiking"]["network"="nwn"]["alt_name"~"${nameSearchRegex}", i][!"ref"](area.fr);
+)->.matched;
+(
+  .matched;
+  >>;
+);
+out geom;
+`.trim() : null;
+
+    const METRO_BOUNDS = {
+      minLat: METRO_VIEW.southWest[0],
+      maxLat: METRO_VIEW.northEast[0],
+      minLon: METRO_VIEW.southWest[1],
+      maxLon: METRO_VIEW.northEast[1]
+    };
+
+    const endpoints = [
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.openstreetmap.fr/api/interpreter',
+      'https://overpass-api.de/api/interpreter'
+    ];
+
+    async function fetchOverpass(queryText, timeoutMs = 30000, requireElements = false) {
+      let lastErr;
+      for (const url of endpoints) {
+        try {
+          const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+            ? AbortSignal.timeout(timeoutMs)
+            : undefined;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(queryText),
+            signal
+          });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const bodyText = await resp.text();
+          try {
+            const data = JSON.parse(bodyText);
+            if (requireElements && !(data.elements || []).length) {
+              lastErr = new Error('Réponse Overpass vide');
+              continue;
+            }
+            return data;
+          } catch {
+            throw new Error('Réponse Overpass invalide');
+          }
+        } catch (e) {
+          lastErr = e;
+          console.warn('Overpass endpoint failed:', url, e);
+        }
+      }
+      throw lastErr;
+    }
+
+    // Distance haversine entre 2 points [lat, lon] en mètres
+    function haversine(a, b) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b[0] - a[0]);
+      const dLon = toRad(b[1] - a[1]);
+      const lat1 = toRad(a[0]);
+      const lat2 = toRad(b[0]);
+      const h = Math.sin(dLat / 2) ** 2 +
+                Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    function isInMetroFrance(point) {
+      return point[0] >= METRO_BOUNDS.minLat &&
+             point[0] <= METRO_BOUNDS.maxLat &&
+             point[1] >= METRO_BOUNDS.minLon &&
+             point[1] <= METRO_BOUNDS.maxLon;
+    }
+
+    function toLatLngs(geometry) {
+      if (!Array.isArray(geometry) || geometry.length < 2) {
+        return null;
+      }
+      const latlngs = geometry.map(point => [point.lat, point.lon]);
+      return latlngs.some(isInMetroFrance) ? latlngs : null;
+    }
+
+    function pointKey(point) {
+      return `${point[0].toFixed(4)}:${point[1].toFixed(4)}`;
+    }
+
+    function normalizeSearchValue(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    function formatKm(value) {
+      return new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      }).format(value);
+    }
+
+    function formatMeters(value) {
+      return new Intl.NumberFormat('fr-FR', {
+        maximumFractionDigits: 0
+      }).format(Math.round(Number(value) || 0));
+    }
+
+    function formatElevationPair(gainMeters, lossMeters) {
+      return `D+ ${formatMeters(gainMeters)} m · D- ${formatMeters(lossMeters)} m`;
+    }
+
+    function getSelectedCity(role) {
+      const index = role === 'start' ? plannerState.startIndex : plannerState.endIndex;
+      return Number.isInteger(index) ? plannerState.cities[index] || null : null;
+    }
+
+    function getSelectedPoint(role) {
+      return role === 'start' ? plannerState.startSelection : plannerState.endSelection;
+    }
+
+    function sameLatLng(left, right) {
+      return Boolean(left && right) &&
+        Math.abs(left[0] - right[0]) < 1e-7 &&
+        Math.abs(left[1] - right[1]) < 1e-7;
+    }
+
+    function interpolateLatLng(start, end, ratio) {
+      return [
+        start[0] + (end[0] - start[0]) * ratio,
+        start[1] + (end[1] - start[1]) * ratio
+      ];
+    }
+
+    function pointToXY(point, referenceLat) {
+      return [
+        point[1] * 111320 * Math.cos(referenceLat * Math.PI / 180),
+        point[0] * 110540
+      ];
+    }
+
+    function normalizePointOffsets(latlngs, providedOffsets) {
+      if (!Array.isArray(providedOffsets) || providedOffsets.length !== latlngs.length) {
+        return null;
+      }
+
+      const normalized = [0];
+      for (let index = 1; index < providedOffsets.length; index++) {
+        const previousOffset = normalized[index - 1];
+        const rawValue = Number(providedOffsets[index]);
+        if (!Number.isFinite(rawValue)) {
+          return null;
+        }
+        normalized.push(Math.max(previousOffset, rawValue));
+      }
+
+      return normalized;
+    }
+
+    const DISPLAY_OUTLIER_CLUSTER_JOIN_GAP_METERS = 20000;
+    const DISPLAY_OUTLIER_CLUSTER_MIN_LENGTH_METERS = 20000;
+    const DISPLAY_OUTLIER_CLUSTER_MIN_RATIO = 0.1;
+
+    function buildSegmentRecord(latlngs, providedOffsets) {
+      let pointOffsets = normalizePointOffsets(latlngs, providedOffsets);
+      if (!pointOffsets) {
+        pointOffsets = [0];
+        for (let index = 1; index < latlngs.length; index++) {
+          pointOffsets.push(pointOffsets[index - 1] + haversine(latlngs[index - 1], latlngs[index]));
+        }
+      }
+
+      return {
+        latlngs,
+        pointOffsets,
+        lengthMeters: pointOffsets[pointOffsets.length - 1] || 0
+      };
+    }
+
+    function filterDisplayedRouteSegments(segments, segmentPointMeters = null) {
+      const records = segments.map((latlngs, index) => buildSegmentRecord(latlngs, segmentPointMeters?.[index]));
+      if (records.length <= 1) {
+        return {
+          segments,
+          segmentPointMeters,
+          keptIndexes: records.map((_, index) => index),
+          removedLeadingMeters: 0,
+          displayTotalMeters: records.reduce((sum, record) => sum + record.lengthMeters, 0),
+          filteredClusterCount: 0,
+          filteredSegmentCount: 0
+        };
+      }
+
+      const clusters = [];
+      let currentCluster = {
+        indexes: [0],
+        lengthMeters: records[0].lengthMeters
+      };
+
+      for (let index = 1; index < records.length; index++) {
+        const previous = records[index - 1].latlngs;
+        const current = records[index].latlngs;
+        const gapMeters = haversine(previous[previous.length - 1], current[0]);
+        if (gapMeters <= DISPLAY_OUTLIER_CLUSTER_JOIN_GAP_METERS) {
+          currentCluster.indexes.push(index);
+          currentCluster.lengthMeters += records[index].lengthMeters;
+          continue;
+        }
+
+        clusters.push(currentCluster);
+        currentCluster = {
+          indexes: [index],
+          lengthMeters: records[index].lengthMeters
+        };
+      }
+      clusters.push(currentCluster);
+
+      if (clusters.length <= 1) {
+        return {
+          segments,
+          segmentPointMeters,
+          keptIndexes: records.map((_, index) => index),
+          removedLeadingMeters: 0,
+          displayTotalMeters: records.reduce((sum, record) => sum + record.lengthMeters, 0),
+          filteredClusterCount: 0,
+          filteredSegmentCount: 0
+        };
+      }
+
+      const mainClusterLength = Math.max(...clusters.map(cluster => cluster.lengthMeters));
+      const keepThreshold = Math.max(
+        DISPLAY_OUTLIER_CLUSTER_MIN_LENGTH_METERS,
+        mainClusterLength * DISPLAY_OUTLIER_CLUSTER_MIN_RATIO
+      );
+      let keptClusters = clusters.filter(cluster => cluster.lengthMeters >= keepThreshold);
+      if (!keptClusters.length) {
+        keptClusters = [clusters.reduce((best, cluster) => cluster.lengthMeters > best.lengthMeters ? cluster : best, clusters[0])];
+      }
+
+      if (keptClusters.length === clusters.length) {
+        return {
+          segments,
+          segmentPointMeters,
+          keptIndexes: records.map((_, index) => index),
+          removedLeadingMeters: 0,
+          displayTotalMeters: records.reduce((sum, record) => sum + record.lengthMeters, 0),
+          filteredClusterCount: 0,
+          filteredSegmentCount: 0
+        };
+      }
+
+      const keptIndexes = keptClusters.flatMap(cluster => cluster.indexes);
+      const firstKeptIndex = keptIndexes[0] ?? 0;
+      return {
+        segments: keptIndexes.map(index => records[index].latlngs),
+        segmentPointMeters: keptIndexes.map(index => records[index].pointOffsets),
+        keptIndexes,
+        removedLeadingMeters: records.slice(0, firstKeptIndex).reduce((sum, record) => sum + record.lengthMeters, 0),
+        displayTotalMeters: keptIndexes.reduce((sum, index) => sum + records[index].lengthMeters, 0),
+        filteredClusterCount: clusters.length - keptClusters.length,
+        filteredSegmentCount: records.length - keptIndexes.length
+      };
+    }
+
+    function adjustDisplayedCities(cities, displayRoute) {
+      if (!Array.isArray(cities)) {
+        return [];
+      }
+
+      const removedLeadingKm = displayRoute?.removedLeadingMeters ? displayRoute.removedLeadingMeters / 1000 : 0;
+      const maxDisplayedKm = displayRoute?.displayTotalMeters ? displayRoute.displayTotalMeters / 1000 : Number.POSITIVE_INFINITY;
+      return cities
+        .map(city => ({
+          ...city,
+          km: Math.max(0, Math.round(((Number(city?.km) || 0) - removedLeadingKm) * 10) / 10)
+        }))
+        .filter(city => Number.isFinite(city.km) && city.km <= maxDisplayedKm + 1);
+    }
+
+    function buildRouteGeometry(segments, segmentPointMeters = null) {
+      let totalMeters = 0;
+      const segmentInfos = segments.map((latlngs, segmentIndex) => {
+        const { pointOffsets, lengthMeters } = buildSegmentRecord(latlngs, segmentPointMeters?.[segmentIndex]);
+        const segmentInfo = {
+          latlngs,
+          pointOffsets,
+          lengthMeters,
+          startMeters: totalMeters,
+          endMeters: totalMeters + lengthMeters
+        };
+        totalMeters += lengthMeters;
+        return segmentInfo;
+      });
+
+      return { segments: segmentInfos, totalMeters };
+    }
+
+    function getElevationProfileCacheKey(routeGeometry) {
+      const cacheVersion = routeCacheManifest.generatedAt || routeCacheEntry?.file || 'local';
+      return `gr-route-elevation:${ELEVATION_CACHE_VERSION}:${refKey}:${cacheVersion}:${Math.round(routeGeometry.totalMeters)}`;
+    }
+
+    function hydrateElevationProfile(rawProfile, routeGeometry) {
+      if (!rawProfile || !routeGeometry) {
+        return null;
+      }
+
+      const totalMeters = Number(rawProfile.totalMeters);
+      if (!Number.isFinite(totalMeters) || Math.abs(totalMeters - routeGeometry.totalMeters) > 1) {
+        return null;
+      }
+
+      const samples = Array.isArray(rawProfile.samples)
+        ? rawProfile.samples
+            .map(sample => ({
+              meters: Number(sample?.meters),
+              elevation: Number(sample?.elevation)
+            }))
+            .filter(sample => Number.isFinite(sample.meters) && Number.isFinite(sample.elevation))
+        : [];
+
+      if (samples.length < 2) {
+        return null;
+      }
+
+      const stats = computeElevationStatsFromSamples(samples);
+      return {
+        totalMeters,
+        samples,
+        gainMeters: Number.isFinite(rawProfile.gainMeters) ? Number(rawProfile.gainMeters) : stats.gainMeters,
+        lossMeters: Number.isFinite(rawProfile.lossMeters) ? Number(rawProfile.lossMeters) : stats.lossMeters
+      };
+    }
+
+    function readStoredElevationProfile(routeGeometry) {
+      if (typeof localStorage === 'undefined' || !routeGeometry) {
+        return null;
+      }
+
+      try {
+        const raw = localStorage.getItem(getElevationProfileCacheKey(routeGeometry));
+        if (!raw) {
+          return null;
+        }
+
+        const parsed = JSON.parse(raw);
+        const profile = hydrateElevationProfile(parsed, routeGeometry);
+        if (profile) {
+          return profile;
+        }
+
+        localStorage.removeItem(getElevationProfileCacheKey(routeGeometry));
+      } catch {
+        // Ignore cache parsing issues and fetch a fresh profile.
+      }
+
+      return null;
+    }
+
+    function storeElevationProfile(routeGeometry, profile) {
+      if (typeof localStorage === 'undefined' || !routeGeometry || !profile) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(
+          getElevationProfileCacheKey(routeGeometry),
+          JSON.stringify({
+            totalMeters: routeGeometry.totalMeters,
+            gainMeters: profile.gainMeters,
+            lossMeters: profile.lossMeters,
+            samples: profile.samples
+          })
+        );
+      } catch {
+        // Ignore storage quota issues.
+      }
+    }
+
+    function getElevationSampleSpacing(routeGeometry) {
+      if (!routeGeometry?.totalMeters) {
+        return ELEVATION_MIN_SAMPLE_SPACING_METERS;
+      }
+
+      return Math.max(
+        ELEVATION_MIN_SAMPLE_SPACING_METERS,
+        Math.min(ELEVATION_MAX_SAMPLE_SPACING_METERS, routeGeometry.totalMeters / ELEVATION_TARGET_SAMPLE_COUNT)
+      );
+    }
+
+    function sampleRouteElevationPoints(routeGeometry) {
+      if (!routeGeometry?.segments.length) {
+        return [];
+      }
+
+      const spacingMeters = getElevationSampleSpacing(routeGeometry);
+      const samples = [];
+
+      for (let meters = 0; meters < routeGeometry.totalMeters; meters += spacingMeters) {
+        const latlng = getLatLngAtMeters(routeGeometry, meters);
+        if (latlng) {
+          samples.push({ meters, latlng });
+        }
+      }
+
+      const finalLatLng = getLatLngAtMeters(routeGeometry, routeGeometry.totalMeters);
+      if (finalLatLng && (!samples.length || Math.abs(samples[samples.length - 1].meters - routeGeometry.totalMeters) > 1)) {
+        samples.push({ meters: routeGeometry.totalMeters, latlng: finalLatLng });
+      }
+
+      return samples;
+    }
+
+    async function fetchElevationBatch(samples) {
+      const params = new URLSearchParams({
+        latitude: samples.map(sample => sample.latlng[0].toFixed(5)).join(','),
+        longitude: samples.map(sample => sample.latlng[1].toFixed(5)).join(',')
+      });
+
+      for (let attempt = 0; attempt <= ELEVATION_RETRY_LIMIT; attempt++) {
+        const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+          ? AbortSignal.timeout(15000)
+          : undefined;
+        const response = await fetch(`${ELEVATION_API_URL}?${params.toString()}`, { signal });
+        if (response.ok) {
+          const data = await response.json();
+          if (!Array.isArray(data?.elevation) || data.elevation.length !== samples.length) {
+            throw new Error('Réponse d\'élévation invalide');
+          }
+
+          return data.elevation.map(value => Number(value));
+        }
+
+        if (response.status !== 429 || attempt === ELEVATION_RETRY_LIMIT) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        await new Promise(resolve => window.setTimeout(resolve, ELEVATION_RETRY_DELAY_MS * (attempt + 1)));
+      }
+
+      throw new Error('Réponse d\'élévation invalide');
+    }
+
+    function computeElevationStatsFromSamples(samples) {
+      let gainMeters = 0;
+      let lossMeters = 0;
+
+      for (let index = 1; index < samples.length; index++) {
+        const delta = Number(samples[index].elevation) - Number(samples[index - 1].elevation);
+        if (!Number.isFinite(delta) || Math.abs(delta) < ELEVATION_NOISE_THRESHOLD_METERS) {
+          continue;
+        }
+
+        if (delta > 0) {
+          gainMeters += delta;
+        } else {
+          lossMeters += -delta;
+        }
+      }
+
+      return {
+        gainMeters: Math.round(gainMeters),
+        lossMeters: Math.round(lossMeters)
+      };
+    }
+
+    function interpolateElevationAtMeters(profile, meters) {
+      if (!profile?.samples?.length) {
+        return null;
+      }
+
+      if (meters <= profile.samples[0].meters) {
+        return profile.samples[0].elevation;
+      }
+
+      const lastSample = profile.samples[profile.samples.length - 1];
+      if (meters >= lastSample.meters) {
+        return lastSample.elevation;
+      }
+
+      for (let index = 1; index < profile.samples.length; index++) {
+        const previous = profile.samples[index - 1];
+        const current = profile.samples[index];
+        if (meters <= current.meters) {
+          const span = current.meters - previous.meters;
+          const ratio = span > 0 ? (meters - previous.meters) / span : 0;
+          return previous.elevation + (current.elevation - previous.elevation) * ratio;
+        }
+      }
+
+      return lastSample.elevation;
+    }
+
+    function getElevationStatsBetween(profile, startMeters, endMeters) {
+      if (!profile?.samples?.length) {
+        return null;
+      }
+
+      const fromMeters = Math.max(0, Math.min(startMeters, endMeters));
+      const toMeters = Math.min(profile.totalMeters, Math.max(startMeters, endMeters));
+      if (toMeters - fromMeters < 1) {
+        return { gainMeters: 0, lossMeters: 0 };
+      }
+
+      const startElevation = interpolateElevationAtMeters(profile, fromMeters);
+      const endElevation = interpolateElevationAtMeters(profile, toMeters);
+      if (!Number.isFinite(startElevation) || !Number.isFinite(endElevation)) {
+        return null;
+      }
+
+      const samples = [{ meters: fromMeters, elevation: startElevation }];
+      profile.samples.forEach(sample => {
+        if (sample.meters > fromMeters && sample.meters < toMeters) {
+          samples.push(sample);
+        }
+      });
+
+      if (Math.abs(samples[samples.length - 1].meters - toMeters) > 0.5) {
+        samples.push({ meters: toMeters, elevation: endElevation });
+      } else {
+        samples[samples.length - 1] = { meters: toMeters, elevation: endElevation };
+      }
+
+      return computeElevationStatsFromSamples(samples);
+    }
+
+    async function ensureElevationProfile(routeGeometry) {
+      if (!routeGeometry?.segments.length) {
+        plannerState.elevationProfile = null;
+        plannerState.elevationStatus = 'idle';
+        plannerState.elevationError = '';
+        renderPlanner();
+        return;
+      }
+
+      const requestId = ++plannerState.elevationRequestId;
+      const cachedProfile = readStoredElevationProfile(routeGeometry);
+      if (cachedProfile) {
+        if (requestId !== plannerState.elevationRequestId) {
+          return;
+        }
+
+        plannerState.elevationProfile = cachedProfile;
+        plannerState.elevationStatus = 'ready';
+        plannerState.elevationError = '';
+        renderPlanner();
+        return;
+      }
+
+      plannerState.elevationProfile = null;
+      plannerState.elevationStatus = 'loading';
+      plannerState.elevationError = '';
+      renderPlanner();
+
+      try {
+        const sampledPoints = sampleRouteElevationPoints(routeGeometry);
+        if (sampledPoints.length < 2) {
+          throw new Error('Profil d\'élévation insuffisant');
+        }
+
+        const elevations = [];
+        for (let index = 0; index < sampledPoints.length; index += ELEVATION_BATCH_SIZE) {
+          const batch = sampledPoints.slice(index, index + ELEVATION_BATCH_SIZE);
+          const batchElevations = await fetchElevationBatch(batch);
+          elevations.push(...batchElevations);
+          if (index + ELEVATION_BATCH_SIZE < sampledPoints.length) {
+            await new Promise(resolve => window.setTimeout(resolve, 120));
+          }
+        }
+
+        const samples = sampledPoints
+          .map((sample, index) => ({
+            meters: sample.meters,
+            elevation: elevations[index]
+          }))
+          .filter(sample => Number.isFinite(sample.elevation));
+
+        if (samples.length < 2) {
+          throw new Error('Réponse d\'élévation incomplète');
+        }
+
+        const stats = computeElevationStatsFromSamples(samples);
+        const profile = {
+          totalMeters: routeGeometry.totalMeters,
+          samples,
+          gainMeters: stats.gainMeters,
+          lossMeters: stats.lossMeters
+        };
+
+        if (requestId !== plannerState.elevationRequestId) {
+          return;
+        }
+
+        plannerState.elevationProfile = profile;
+        plannerState.elevationStatus = 'ready';
+        plannerState.elevationError = '';
+        storeElevationProfile(routeGeometry, profile);
+      } catch (error) {
+        console.warn('Unable to fetch elevation profile for route', error);
+        if (requestId !== plannerState.elevationRequestId) {
+          return;
+        }
+
+        plannerState.elevationProfile = null;
+        plannerState.elevationStatus = 'error';
+        plannerState.elevationError = error instanceof Error ? error.message : 'Erreur inconnue';
+      }
+
+      renderPlanner();
+    }
+
+    function interpolateOnSegment(segmentInfo, localMeters) {
+      if (!segmentInfo.latlngs.length) {
+        return null;
+      }
+      if (localMeters <= 0) {
+        return segmentInfo.latlngs[0].slice();
+      }
+      if (localMeters >= segmentInfo.lengthMeters) {
+        return segmentInfo.latlngs[segmentInfo.latlngs.length - 1].slice();
+      }
+
+      for (let index = 1; index < segmentInfo.pointOffsets.length; index++) {
+        const currentOffset = segmentInfo.pointOffsets[index];
+        if (localMeters <= currentOffset) {
+          const previousOffset = segmentInfo.pointOffsets[index - 1];
+          const span = currentOffset - previousOffset;
+          const ratio = span > 0 ? (localMeters - previousOffset) / span : 0;
+          return interpolateLatLng(segmentInfo.latlngs[index - 1], segmentInfo.latlngs[index], ratio);
+        }
+      }
+
+      return segmentInfo.latlngs[segmentInfo.latlngs.length - 1].slice();
+    }
+
+    function getLatLngAtMeters(routeGeometry, meters) {
+      if (!routeGeometry || !routeGeometry.segments.length) {
+        return null;
+      }
+
+      const clampedMeters = Math.max(0, Math.min(meters, routeGeometry.totalMeters));
+      for (const segmentInfo of routeGeometry.segments) {
+        if (clampedMeters <= segmentInfo.endMeters + 1e-6) {
+          return interpolateOnSegment(segmentInfo, clampedMeters - segmentInfo.startMeters);
+        }
+      }
+
+      const lastSegment = routeGeometry.segments[routeGeometry.segments.length - 1];
+      return lastSegment.latlngs[lastSegment.latlngs.length - 1].slice();
+    }
+
+    function nearestRoutePosition(point, routeGeometry) {
+      const bestMatch = {
+        distanceMeters: Number.POSITIVE_INFINITY,
+        meters: 0,
+        latlng: null
+      };
+
+      if (!routeGeometry) {
+        return bestMatch;
+      }
+
+      routeGeometry.segments.forEach(segmentInfo => {
+        for (let index = 1; index < segmentInfo.latlngs.length; index++) {
+          const start = segmentInfo.latlngs[index - 1];
+          const end = segmentInfo.latlngs[index];
+          const segmentLength = segmentInfo.pointOffsets[index] - segmentInfo.pointOffsets[index - 1];
+          if (segmentLength <= 0) {
+            continue;
+          }
+
+          const referenceLat = (point[0] + start[0] + end[0]) / 3;
+          const [px, py] = pointToXY(point, referenceLat);
+          const [ax, ay] = pointToXY(start, referenceLat);
+          const [bx, by] = pointToXY(end, referenceLat);
+          const dx = bx - ax;
+          const dy = by - ay;
+          const lengthSq = dx * dx + dy * dy;
+          if (lengthSq <= 0) {
+            continue;
+          }
+
+          const ratio = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+          const projection = interpolateLatLng(start, end, ratio);
+          const [projX, projY] = pointToXY(projection, referenceLat);
+          const distanceMeters = Math.hypot(px - projX, py - projY);
+          const meters = segmentInfo.startMeters + segmentInfo.pointOffsets[index - 1] + segmentLength * ratio;
+
+          if (distanceMeters < bestMatch.distanceMeters) {
+            bestMatch.distanceMeters = distanceMeters;
+            bestMatch.meters = meters;
+            bestMatch.latlng = projection;
+          }
+        }
+      });
+
+      return bestMatch;
+    }
+
+    function buildRouteSlice(routeGeometry, startMeters, endMeters) {
+      if (!routeGeometry) {
+        return [];
+      }
+
+      const fromMeters = Math.max(0, Math.min(startMeters, endMeters));
+      const toMeters = Math.max(startMeters, endMeters);
+      if (toMeters - fromMeters < 1) {
+        return [];
+      }
+
+      return routeGeometry.segments.map(segmentInfo => {
+        const overlapStart = Math.max(fromMeters, segmentInfo.startMeters);
+        const overlapEnd = Math.min(toMeters, segmentInfo.endMeters);
+        if (overlapEnd <= overlapStart) {
+          return null;
+        }
+
+        const localStart = overlapStart - segmentInfo.startMeters;
+        const localEnd = overlapEnd - segmentInfo.startMeters;
+        const slice = [interpolateOnSegment(segmentInfo, localStart)];
+
+        for (let index = 1; index < segmentInfo.pointOffsets.length - 1; index++) {
+          const offset = segmentInfo.pointOffsets[index];
+          if (offset > localStart && offset < localEnd) {
+            slice.push(segmentInfo.latlngs[index].slice());
+          }
+        }
+
+        const endPoint = interpolateOnSegment(segmentInfo, localEnd);
+        if (!sameLatLng(slice[slice.length - 1], endPoint)) {
+          slice.push(endPoint);
+        }
+
+        return slice.length >= 2 ? slice : null;
+      }).filter(Boolean);
+    }
+
+    function buildSelectionFromCity(role, cityIndex) {
+      const city = plannerState.cities[cityIndex];
+      if (!city || !plannerState.routeGeometry) {
+        return null;
+      }
+
+      const meters = Math.max(0, Math.min(plannerState.routeGeometry.totalMeters, city.km * 1000));
+      return {
+        role,
+        source: 'city',
+        index: cityIndex,
+        label: city.name,
+        name: city.name,
+        km: meters / 1000,
+        meters,
+        latlng: getLatLngAtMeters(plannerState.routeGeometry, meters)
+      };
+    }
+
+    function buildSelectionFromMap(role, meters, latlng, label = 'Point carte') {
+      const clampedMeters = Math.max(0, Math.min(plannerState.routeGeometry?.totalMeters || 0, meters));
+      return {
+        role,
+        source: 'map',
+        label,
+        name: label,
+        km: clampedMeters / 1000,
+        meters: clampedMeters,
+        latlng: latlng || getLatLngAtMeters(plannerState.routeGeometry, clampedMeters)
+      };
+    }
+
+    function applySelectionFromMap(role, meters, latlng, label = 'Point du GR') {
+      if (!role || !plannerState.routeGeometry) {
+        return false;
+      }
+
+      setSelection(role, buildSelectionFromMap(role, meters, latlng, label));
+      plannerState.mapPickRole = null;
+      if (plannerState.routeContextPopup) {
+        map.closePopup(plannerState.routeContextPopup);
+      }
+      renderPlanner();
+      return true;
+    }
+
+    function applyMapPickSelection(meters, latlng, label = 'Point carte') {
+      if (!plannerState.mapPickRole || !plannerState.routeGeometry) {
+        return false;
+      }
+
+      return applySelectionFromMap(plannerState.mapPickRole, meters, latlng, label);
+    }
+
+    function getTripDays() {
+      const value = Number.parseInt(daysInput.value, 10);
+      return Number.isInteger(value) && value > 0 ? value : null;
+    }
+
+    function getStageColor(stageIndex, stageCount) {
+      if (stageCount <= 1) {
+        return '#d32f2f';
+      }
+      return STAGE_COLORS[stageIndex % STAGE_COLORS.length];
+    }
+
+    function buildDayStages(routeGeometry, startMeters, endMeters, dayCount) {
+      if (!routeGeometry) {
+        return [];
+      }
+
+      const safeDayCount = Number.isInteger(dayCount) && dayCount > 1 ? dayCount : 1;
+      const totalMeters = Math.abs(endMeters - startMeters);
+      if (totalMeters < 1) {
+        return [];
+      }
+
+      const isReverse = endMeters < startMeters;
+      const stages = [];
+      for (let stageIndex = 0; stageIndex < safeDayCount; stageIndex++) {
+        const stageStart = isReverse
+          ? startMeters - (totalMeters * stageIndex) / safeDayCount
+          : startMeters + (totalMeters * stageIndex) / safeDayCount;
+        const stageEnd = isReverse
+          ? startMeters - (totalMeters * (stageIndex + 1)) / safeDayCount
+          : startMeters + (totalMeters * (stageIndex + 1)) / safeDayCount;
+
+        stages.push({
+          stageNumber: stageIndex + 1,
+          startMeters: stageStart,
+          endMeters: stageEnd,
+          startKm: stageStart / 1000,
+          endKm: stageEnd / 1000,
+          lengthKm: Math.abs(stageEnd - stageStart) / 1000,
+          markerLatLng: getLatLngAtMeters(routeGeometry, (stageStart + stageEnd) / 2),
+          boundaryLatLng: stageIndex < safeDayCount - 1
+            ? getLatLngAtMeters(routeGeometry, stageEnd)
+            : null,
+          latlngGroups: buildRouteSlice(routeGeometry, stageStart, stageEnd)
+        });
+      }
+
+      return stages.filter(stage => stage.latlngGroups.length);
+    }
+
+    function getDefaultCityChoices() {
+      const entries = plannerState.cities.map((city, index) => ({ city, index }));
+      if (entries.length <= DEFAULT_CITY_SUGGESTION_COUNT) {
+        return entries;
+      }
+
+      const targetCount = Math.min(DEFAULT_CITY_SUGGESTION_COUNT, entries.length);
+      const totalKm = Math.max(
+        entries[entries.length - 1]?.city?.km || 0,
+        (plannerState.routeGeometry?.totalMeters || 0) / 1000
+      );
+      const usedIndices = new Set();
+      const suggested = [];
+
+      for (let slotIndex = 0; slotIndex < targetCount; slotIndex++) {
+        const targetKm = targetCount === 1 ? 0 : (totalKm * slotIndex) / (targetCount - 1);
+        let bestEntry = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        entries.forEach(entry => {
+          if (usedIndices.has(entry.index)) {
+            return;
+          }
+
+          const placePenalty = (PLACE_PRIORITY[entry.city.place] ?? 3) * 8;
+          const score = Math.abs(entry.city.km - targetKm) + placePenalty;
+          if (score < bestScore) {
+            bestScore = score;
+            bestEntry = entry;
+          }
+        });
+
+        if (bestEntry) {
+          usedIndices.add(bestEntry.index);
+          suggested.push(bestEntry);
+        }
+      }
+
+      return suggested.sort((left, right) => left.city.km - right.city.km);
+    }
+
+    function setSelection(role, selection) {
+      if (role === 'start') {
+        plannerState.startSelection = selection;
+        plannerState.startIndex = selection?.source === 'city' ? selection.index : null;
+      } else {
+        plannerState.endSelection = selection;
+        plannerState.endIndex = selection?.source === 'city' ? selection.index : null;
+      }
+    }
+
+    function clearSelection(role, clearQuery = false) {
+      setSelection(role, null);
+      if (role === 'start') {
+        if (clearQuery) {
+          plannerState.startQuery = '';
+          startInput.value = '';
+        }
+      } else {
+        if (clearQuery) {
+          plannerState.endQuery = '';
+          endInput.value = '';
+        }
+      }
+
+      if (plannerState.mapPickRole === role) {
+        plannerState.mapPickRole = null;
+      }
+    }
+
+    function clearAllSelections(clearQueries = false) {
+      clearSelection('start', clearQueries);
+      clearSelection('end', clearQueries);
+      plannerState.mapPickRole = null;
+      if (plannerState.routeContextPopup) {
+        map.closePopup(plannerState.routeContextPopup);
+      }
+    }
+
+    function getTotalRouteSummaryLine() {
+      if (!plannerState.routeGeometry) {
+        return '';
+      }
+
+      const parts = [`${formatKm(plannerState.routeGeometry.totalMeters / 1000)} km`];
+      if (plannerState.elevationStatus === 'ready' && plannerState.elevationProfile) {
+        parts.push(formatElevationPair(plannerState.elevationProfile.gainMeters, plannerState.elevationProfile.lossMeters));
+      } else if (plannerState.elevationStatus === 'loading') {
+        parts.push('dénivelé en cours de calcul...');
+      } else if (plannerState.elevationStatus === 'error') {
+        parts.push('dénivelé indisponible');
+      }
+
+      return `<strong>Tracé complet :</strong> ${parts.join(' · ')}`;
+    }
+
+    function getSectionElevationSummaryLine(startMeters, endMeters) {
+      if (plannerState.elevationStatus === 'loading') {
+        return '<strong>Dénivelé sur la portion :</strong> calcul en cours...';
+      }
+
+      if (plannerState.elevationStatus === 'error') {
+        return '<strong>Dénivelé sur la portion :</strong> indisponible pour le moment.';
+      }
+
+      if (!plannerState.elevationProfile) {
+        return '';
+      }
+
+      const sectionStats = getElevationStatsBetween(plannerState.elevationProfile, startMeters, endMeters);
+      if (!sectionStats) {
+        return '';
+      }
+
+      return `<strong>Dénivelé sur la portion :</strong> ${formatElevationPair(sectionStats.gainMeters, sectionStats.lossMeters)}`;
+    }
+
+    function updateSelectionOverlay() {
+      if (!plannerState.routeHighlightLayer || !plannerState.routeMarkerLayer) {
+        return;
+      }
+
+      plannerState.routeHighlightLayer.clearLayers();
+      plannerState.routeMarkerLayer.clearLayers();
+
+      const startSelection = getSelectedPoint('start');
+      const endSelection = getSelectedPoint('end');
+
+      if (!startSelection || !endSelection) {
+        if (startSelection?.latlng) {
+          L.circleMarker(startSelection.latlng, {
+            radius: 7,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: '#1b5e20',
+            fillOpacity: 1,
+            renderer: mapRenderer
+          }).bindTooltip(`Départ · km ${formatKm(startSelection.km)}`, { direction: 'top' }).addTo(plannerState.routeMarkerLayer);
+        }
+
+        if (endSelection?.latlng) {
+          L.circleMarker(endSelection.latlng, {
+            radius: 7,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: '#b71c1c',
+            fillOpacity: 1,
+            renderer: mapRenderer
+          }).bindTooltip(`Arrivée · km ${formatKm(endSelection.km)}`, { direction: 'top' }).addTo(plannerState.routeMarkerLayer);
+        }
+        return;
+      }
+
+      const stages = buildDayStages(plannerState.routeGeometry, startSelection.meters, endSelection.meters, getTripDays());
+
+      stages.forEach((stage, stageIndex) => {
+        const color = getStageColor(stageIndex, stages.length);
+        stage.latlngGroups.forEach(latlngs => {
+          L.polyline(latlngs, {
+            color,
+            weight: 6,
+            opacity: 0.96,
+            lineCap: 'round',
+            lineJoin: 'round',
+            renderer: mapRenderer
+          }).bindTooltip(
+            `Jour ${stage.stageNumber} · ${formatKm(stage.lengthKm)} km`,
+            { sticky: true }
+          ).addTo(plannerState.routeHighlightLayer);
+        });
+
+        if (stage.boundaryLatLng) {
+          const nextStageNumber = stage.stageNumber + 1;
+          L.marker(stage.boundaryLatLng, {
+            icon: L.divIcon({
+              className: 'route-stage-boundary-marker',
+              iconSize: [36, 36],
+              iconAnchor: [18, 18],
+              tooltipAnchor: [0, -20],
+              html: `
+                <span class="route-stage-boundary" style="--boundary-color: ${color}" aria-hidden="true">
+                  <span class="route-stage-boundary-halo"></span>
+                  <span class="route-stage-boundary-ring"></span>
+                  <span class="route-stage-boundary-core"></span>
+                </span>
+              `
+            }),
+            keyboard: false,
+            zIndexOffset: 500
+          }).bindTooltip(
+            `Frontière entre le jour ${stage.stageNumber} et le jour ${nextStageNumber}`,
+            { direction: 'top' }
+          ).addTo(plannerState.routeMarkerLayer);
+        }
+      });
+
+      if (startSelection?.latlng) {
+        L.circleMarker(startSelection.latlng, {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#1b5e20',
+          fillOpacity: 1,
+          renderer: mapRenderer
+        }).bindTooltip(`Départ · km ${formatKm(startSelection.km)}`, { direction: 'top' }).addTo(plannerState.routeMarkerLayer);
+      }
+
+      if (endSelection?.latlng) {
+        L.circleMarker(endSelection.latlng, {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#b71c1c',
+          fillOpacity: 1,
+          renderer: mapRenderer
+        }).bindTooltip(`Arrivée · km ${formatKm(endSelection.km)}`, { direction: 'top' }).addTo(plannerState.routeMarkerLayer);
+      }
+    }
+
+    function getCityQuery(role) {
+      return normalizeSearchValue(role === 'start' ? plannerState.startQuery : plannerState.endQuery);
+    }
+
+    function getFilteredCities(role) {
+      const query = getCityQuery(role);
+      const entries = plannerState.cities.map((city, index) => ({ city, index }));
+      if (!query) {
+        return entries;
+      }
+
+      return entries.filter(({ city }) => {
+        const haystack = `${city.name} ${PLACE_LABELS[city.place] || city.place || ''} ${city.km}`;
+        return normalizeSearchValue(haystack).includes(query);
+      });
+    }
+
+    function renderCityChoices(role) {
+      const container = role === 'start' ? startList : endList;
+      const selectedIndex = role === 'start' ? plannerState.startIndex : plannerState.endIndex;
+      const hasQuery = Boolean(getCityQuery(role));
+
+      if (!plannerState.cities.length) {
+        container.innerHTML = '<p class="city-choice-empty">Aucune liste de villes en cache pour ce GR pour le moment. Vous pouvez quand même choisir directement sur la carte.</p>';
+        return;
+      }
+
+      const filtered = hasQuery ? getFilteredCities(role) : getDefaultCityChoices();
+      if (!filtered.length) {
+        container.innerHTML = '<p class="city-choice-empty">Aucune ville ne correspond à votre filtre.</p>';
+        return;
+      }
+
+      const visible = filtered.slice(0, hasQuery ? 12 : DEFAULT_CITY_SUGGESTION_COUNT);
+      const itemsHtml = visible.map(({ city, index }) => {
+        const isActive = selectedIndex === index;
+        const placeLabel = PLACE_LABELS[city.place] || city.place || 'ville';
+        return `
+          <button type="button" class="city-choice${isActive ? ' active' : ''}" data-role="${role}" data-city-index="${index}">
+            <span class="city-choice-main">${city.name}</span>
+            <span class="city-choice-meta">${placeLabel} · km ${formatKm(city.km)}</span>
+          </button>
+        `;
+      }).join('');
+      const extraHtml = hasQuery
+        ? (filtered.length > visible.length
+          ? `<p class="city-choice-more">${filtered.length - visible.length} autre(s) ville(s) masquée(s). Continuez à taper pour affiner.</p>`
+          : '')
+        : (plannerState.cities.length > visible.length
+          ? `<p class="city-choice-more">${plannerState.cities.length} villes en cache. Voici 10 repères du trajet ; tapez pour filtrer toute la liste.</p>`
+          : '');
+
+      container.innerHTML = itemsHtml + extraHtml;
+    }
+
+    function renderPlannerSummary() {
+      const startPoint = getSelectedPoint('start');
+      const endPoint = getSelectedPoint('end');
+
+      const activePickRole = plannerState.mapPickRole;
+
+      if (!plannerState.routeGeometry) {
+        plannerSummary.innerHTML = 'Chargez un tracé pour préparer votre étape.';
+        return;
+      }
+
+      const totalRouteLine = getTotalRouteSummaryLine();
+
+      if (!startPoint || !endPoint) {
+        const hints = totalRouteLine ? [totalRouteLine] : [];
+        if (!plannerState.cities.length) {
+          hints.push('Les villes traversées ne sont pas encore en cache pour ce GR, mais vous pouvez déjà choisir deux points directement sur la carte.');
+        }
+        if (activePickRole) {
+          hints.push(`Cliquez maintenant sur le tracé ou sur un repère kilométrique pour définir le ${activePickRole === 'start' ? 'départ' : 'point d\'arrivée'}. Un clic sur le tracé sera accroché au GR le plus proche.`);
+          hints.push('Un clic droit sur le tracé permet aussi de choisir directement “Départ ici” ou “Arrivée ici”.');
+        } else {
+          hints.push('Choisissez un départ et une arrivée, soit par ville, soit en cliquant sur la carte.');
+          hints.push('Vous pouvez aussi faire un clic droit sur le tracé pour affecter ce point au départ ou à l\'arrivée.');
+        }
+
+        plannerSummary.innerHTML = hints.map(line => `<p>${line}</p>`).join('');
+        return;
+      }
+
+      const sectionDistance = Math.abs(endPoint.meters - startPoint.meters) / 1000;
+      const tripDays = getTripDays();
+      const isReverseOrder = endPoint.km < startPoint.km;
+      const details = [
+        totalRouteLine,
+        `<strong>Départ :</strong> ${startPoint.name} <span class="route-plan-km">(km ${formatKm(startPoint.km)})</span>`,
+        `<strong>Arrivée :</strong> ${endPoint.name} <span class="route-plan-km">(km ${formatKm(endPoint.km)})</span>`,
+        `<strong>Distance à pied :</strong> ${formatKm(sectionDistance)} km`
+      ].filter(Boolean);
+      const stages = tripDays ? buildDayStages(plannerState.routeGeometry, startPoint.meters, endPoint.meters, tripDays) : [];
+      const sectionElevationLine = getSectionElevationSummaryLine(startPoint.meters, endPoint.meters);
+
+      if (sectionElevationLine) {
+        details.push(sectionElevationLine);
+      }
+
+      if (Number.isInteger(tripDays) && tripDays > 0) {
+        details.push(`<strong>Rythme moyen :</strong> ${formatKm(sectionDistance / tripDays)} km / jour sur ${tripDays} jour${tripDays > 1 ? 's' : ''}`);
+      }
+
+      if (stages.length > 1) {
+        details.push(`<strong>Découpage indicatif :</strong> ${stages.length} tronçons de ${formatKm(sectionDistance / stages.length)} km environ.`);
+      }
+
+      if (isReverseOrder) {
+        details.push('<span class="route-plan-note">Sur le sens du tracé, la ville d\'arrivée apparaît avant la ville de départ. La distance affichée reste la distance entre les deux points du GR.</span>');
+      }
+
+      const stageHtml = stages.length > 1
+        ? `<div class="route-stage-list">${stages.map(stage => `<span class="route-stage-chip">Jour ${stage.stageNumber} · ${formatKm(stage.lengthKm)} km</span>`).join('')}</div>`
+        : '';
+
+      plannerSummary.innerHTML = details.map(line => `<p>${line}</p>`).join('') + stageHtml;
+    }
+
+    function renderPlanner() {
+      renderCityChoices('start');
+      renderCityChoices('end');
+      const startSelection = getSelectedPoint('start');
+      const endSelection = getSelectedPoint('end');
+      const startPickButton = routePlanner.querySelector('.route-pick-button[data-role="start"]');
+      const endPickButton = routePlanner.querySelector('.route-pick-button[data-role="end"]');
+      const startClearButton = routePlanner.querySelector('.route-clear-button[data-role="start"]');
+      const endClearButton = routePlanner.querySelector('.route-clear-button[data-role="end"]');
+      startPickButton?.classList.toggle('active', plannerState.mapPickRole === 'start');
+      endPickButton?.classList.toggle('active', plannerState.mapPickRole === 'end');
+      if (startClearButton) {
+        startClearButton.disabled = !startSelection && !plannerState.startQuery;
+      }
+      if (endClearButton) {
+        endClearButton.disabled = !endSelection && !plannerState.endQuery;
+      }
+      startHint.textContent = plannerState.mapPickRole === 'start'
+        ? 'Cliquez sur le tracé ou sur un repère kilométrique pour définir le départ.'
+        : (startSelection ? `${startSelection.source === 'city' ? 'Ville sélectionnée' : 'Point sélectionné sur la carte'} : ${startSelection.name} · km ${formatKm(startSelection.km)}` : '');
+      endHint.textContent = plannerState.mapPickRole === 'end'
+        ? 'Cliquez sur le tracé ou sur un repère kilométrique pour définir l\'arrivée.'
+        : (endSelection ? `${endSelection.source === 'city' ? 'Ville sélectionnée' : 'Point sélectionné sur la carte'} : ${endSelection.name} · km ${formatKm(endSelection.km)}` : '');
+      map.getContainer().classList.toggle('route-pick-active', Boolean(plannerState.mapPickRole));
+      renderPlannerSummary();
+      updateSelectionOverlay();
+    }
+
+    function updatePlannerCities(cities) {
+      plannerState.cities = Array.isArray(cities) ? cities : [];
+      plannerState.startIndex = null;
+      plannerState.endIndex = null;
+      plannerState.startSelection = null;
+      plannerState.endSelection = null;
+      plannerState.mapPickRole = null;
+      plannerState.elevationProfile = null;
+      plannerState.elevationStatus = 'idle';
+      plannerState.elevationError = '';
+      plannerState.elevationRequestId += 1;
+      plannerState.startQuery = '';
+      plannerState.endQuery = '';
+      plannerState.days = '';
+      startInput.value = '';
+      endInput.value = '';
+      daysInput.value = '';
+      routePlanner.classList.toggle('is-empty', !plannerState.cities.length);
+      renderPlanner();
+    }
+
+    function orientSegmentsInCurrentOrder(segments) {
+      if (!segments.length) {
+        return { orderedSegments: [], maxJoinGap: 0 };
+      }
+
+      const orderedSegments = [segments[0].slice()];
+      let previousEnd = orderedSegments[0][orderedSegments[0].length - 1];
+      let maxJoinGap = 0;
+
+      for (let index = 1; index < segments.length; index++) {
+        const candidate = segments[index].slice();
+        const startGap = haversine(previousEnd, candidate[0]);
+        const endGap = haversine(previousEnd, candidate[candidate.length - 1]);
+
+        if (endGap < startGap) {
+          candidate.reverse();
+          maxJoinGap = Math.max(maxJoinGap, endGap);
+        } else {
+          maxJoinGap = Math.max(maxJoinGap, startGap);
+        }
+
+        orderedSegments.push(candidate);
+        previousEnd = candidate[candidate.length - 1];
+      }
+
+      return { orderedSegments, maxJoinGap };
+    }
+
+    function reorderSegmentsByConnectivity(segments) {
+      if (!segments.length) {
+        return { orderedSegments: [], maxJoinGap: 0, chainCount: 0 };
+      }
+
+      const records = segments.map((segment, index) => ({
+        index,
+        points: segment.slice(),
+        startKey: pointKey(segment[0]),
+        endKey: pointKey(segment[segment.length - 1])
+      }));
+      const adjacency = new Map();
+      const orderedSegments = [];
+      const used = new Set();
+      let chainCount = 0;
+
+      function addAdjacency(key, recordIndex) {
+        if (!adjacency.has(key)) {
+          adjacency.set(key, []);
+        }
+        adjacency.get(key).push(recordIndex);
+      }
+
+      records.forEach((record, recordIndex) => {
+        addAdjacency(record.startKey, recordIndex);
+        addAdjacency(record.endKey, recordIndex);
+      });
+
+      function endpointDegree(key) {
+        return (adjacency.get(key) || []).length;
+      }
+
+      function nextSeedIndex() {
+        for (let index = 0; index < records.length; index++) {
+          if (used.has(index)) {
+            continue;
+          }
+
+          const record = records[index];
+          if (endpointDegree(record.startKey) === 1 || endpointDegree(record.endKey) === 1) {
+            return index;
+          }
+        }
+
+        return records.findIndex((_, index) => !used.has(index));
+      }
+
+      function takeConnectedSegment(anchorKey, attachToStart) {
+        const candidates = (adjacency.get(anchorKey) || [])
+          .filter(index => !used.has(index))
+          .sort((left, right) => records[left].index - records[right].index);
+
+        if (!candidates.length) {
+          return null;
+        }
+
+        const chosenIndex = candidates[0];
+        const chosen = records[chosenIndex];
+        const points = chosen.points.slice();
+        const firstKey = pointKey(points[0]);
+        const lastKey = pointKey(points[points.length - 1]);
+
+        if (attachToStart) {
+          if (lastKey !== anchorKey && firstKey === anchorKey) {
+            points.reverse();
+          }
+        } else if (firstKey !== anchorKey && lastKey === anchorKey) {
+          points.reverse();
+        }
+
+        used.add(chosenIndex);
+        return points;
+      }
+
+      while (used.size < records.length) {
+        const seedIndex = nextSeedIndex();
+        if (seedIndex === -1) {
+          break;
+        }
+
+        const seed = records[seedIndex];
+        const chain = seed.points.slice();
+        used.add(seedIndex);
+        chainCount++;
+
+        if (endpointDegree(seed.startKey) !== 1 && endpointDegree(seed.endKey) === 1) {
+          chain.reverse();
+        }
+
+        let extended = true;
+        while (extended) {
+          extended = false;
+          const next = takeConnectedSegment(pointKey(chain[chain.length - 1]), false);
+          if (next) {
+            chain.push(...next.slice(1));
+            extended = true;
+          }
+        }
+
+        extended = true;
+        while (extended) {
+          extended = false;
+          const previous = takeConnectedSegment(pointKey(chain[0]), true);
+          if (previous) {
+            chain.unshift(...previous.slice(0, -1));
+            extended = true;
+          }
+        }
+
+        orderedSegments.push(chain);
+      }
+
+      return { orderedSegments, maxJoinGap: 0, chainCount };
+    }
+
+    function orientSegments(segments) {
+      const relationOrdered = orientSegmentsInCurrentOrder(segments);
+      if (relationOrdered.maxJoinGap <= 1000) {
+        return { ...relationOrdered, chainCount: relationOrdered.orderedSegments.length ? 1 : 0 };
+      }
+
+      const connectivityOrdered = reorderSegmentsByConnectivity(segments);
+      const reoriented = orientSegmentsInCurrentOrder(connectivityOrdered.orderedSegments);
+      return {
+        ...reoriented,
+        chainCount: connectivityOrdered.chainCount
+      };
+    }
+
+    function extractSegments(data) {
+      const elements = data.elements || [];
+      const relationsById = new Map();
+      const waysById = new Map();
+      const seenWayIds = new Set();
+
+      elements.forEach(element => {
+        if (element.type === 'relation') {
+          relationsById.set(element.id, element);
+        }
+        if (element.type === 'way') {
+          waysById.set(element.id, element);
+        }
+      });
+
+      const childRelationIds = new Set();
+      relationsById.forEach(relation => {
+        (relation.members || []).forEach(member => {
+          if (member.type === 'relation') {
+            childRelationIds.add(member.ref);
+          }
+        });
+      });
+
+      const rootRelations = elements.filter(element =>
+        element.type === 'relation' && !childRelationIds.has(element.id)
+      );
+      const visitedRelations = new Set();
+      const segments = [];
+
+      function shouldSkipMember(member) {
+        return /alternative|variant|shortcut|excursion/i.test(member.role || '');
+      }
+
+      function shouldSkipRelation(relation) {
+        const tags = relation?.tags || {};
+        const routeText = [tags.name, tags.from, tags.to].filter(Boolean).join(' ');
+        if (!routeText) {
+          return false;
+        }
+
+        if (/variante/i.test(displayName)) {
+          return false;
+        }
+
+        return /variante|variant|liaison|acc[eè]s|raccourci/i.test(routeText);
+      }
+
+      function visitRelation(relation) {
+        if (!relation || visitedRelations.has(relation.id)) {
+          return;
+        }
+
+        visitedRelations.add(relation.id);
+        (relation.members || []).forEach(member => {
+          if (shouldSkipMember(member)) {
+            return;
+          }
+
+          if (member.type === 'relation') {
+            visitRelation(relationsById.get(member.ref));
+            return;
+          }
+
+          if (member.type !== 'way') {
+            return;
+          }
+
+          if (seenWayIds.has(member.ref)) {
+            return;
+          }
+
+          const geometry = Array.isArray(member.geometry)
+            ? member.geometry
+            : waysById.get(member.ref)?.geometry;
+          const latlngs = toLatLngs(geometry);
+          if (latlngs) {
+            seenWayIds.add(member.ref);
+            segments.push(latlngs);
+          }
+        });
+      }
+
+      const preferredRoots = rootRelations.filter(relation => !shouldSkipRelation(relation));
+      (preferredRoots.length ? preferredRoots : rootRelations).forEach(visitRelation);
+
+      if (!segments.length) {
+        elements.forEach(element => {
+          if (element.type !== 'way') {
+            return;
+          }
+
+          if (seenWayIds.has(element.id)) {
+            return;
+          }
+
+          const latlngs = toLatLngs(element.geometry);
+          if (latlngs) {
+            seenWayIds.add(element.id);
+            segments.push(latlngs);
+          }
+        });
+      }
+
+      return {
+        ...orientSegments(segments),
+        rawSegmentCount: segments.length
+      };
+    }
+
+    function drawResolvedSegments({ segments, segmentPointMeters, maxJoinGap, chainCount, rawSegmentCount, totalKm: cachedTotalKm }) {
+      const displayRoute = filterDisplayedRouteSegments(segments, segmentPointMeters);
+      segments = displayRoute.segments;
+      segmentPointMeters = displayRoute.segmentPointMeters;
+
+      const group = L.featureGroup().addTo(map);
+      const kmLayer = L.layerGroup().addTo(map);
+      const stationLayer = L.layerGroup().addTo(map);
+      const routeHighlightLayer = L.layerGroup().addTo(map);
+      const routeMarkerLayer = L.layerGroup().addTo(map);
+      const kmRecords = [];
+      const kmHoverTooltip = L.tooltip({
+        direction: 'top',
+        offset: L.point(0, -10),
+        className: 'km-label km-hover-label'
+      });
+      const routeContextPopup = L.popup({
+        closeButton: false,
+        autoClose: true,
+        closeOnClick: true,
+        className: 'route-context-popup',
+        offset: L.point(0, -12)
+      });
+      let visibleKmRecords = [];
+      let hoveredKmValue = null;
+      let segCount = 0;
+      let nextKm = 1;
+
+      plannerState.routeGeometry = buildRouteGeometry(segments, segmentPointMeters);
+      plannerState.elevationProfile = null;
+      plannerState.elevationStatus = 'idle';
+      plannerState.elevationError = '';
+      plannerState.routeHighlightLayer = routeHighlightLayer;
+      plannerState.routeMarkerLayer = routeMarkerLayer;
+      plannerState.routeContextPopup = routeContextPopup;
+      void ensureElevationProfile(plannerState.routeGeometry);
+
+      // Affiche les segments (polylines)
+      L.polyline(segments, {
+        color: '#3d6f78',
+        weight: 3,
+        opacity: 0.75,
+        interactive: false,
+        renderer: mapRenderer,
+        smoothFactor: 1.25
+      }).addTo(group);
+      segCount = segments.length;
+
+      if (displayRoute.filteredClusterCount > 0) {
+        console.warn('Hidden disconnected outlier GR clusters for display:', displayRoute.filteredClusterCount);
+      }
+      if (chainCount > 1) {
+        console.warn('GR path is split across disconnected chains:', chainCount);
+      } else if (maxJoinGap > 500) {
+        console.warn('Large gap between ordered GR segments:', Math.round(maxJoinGap));
+      }
+
+      const totalDist = plannerState.routeGeometry.totalMeters;
+
+      // Pré-calcule les repères km le long du tracé ; on n'affichera ensuite
+      // que ceux qui tombent dans la zone visible pour éviter des milliers
+      // d'objets Leaflet actifs pendant les zooms.
+      plannerState.routeGeometry.segments.forEach(segmentInfo => {
+        for (let i = 1; i < segmentInfo.latlngs.length; i++) {
+          const prev = segmentInfo.latlngs[i - 1];
+          const cur = segmentInfo.latlngs[i];
+          const segmentStart = segmentInfo.startMeters + segmentInfo.pointOffsets[i - 1];
+          const segmentEnd = segmentInfo.startMeters + segmentInfo.pointOffsets[i];
+          const segLen = segmentEnd - segmentStart;
+          if (segLen <= 0) continue;
+
+          // Place un marqueur à chaque kilomètre franchi
+          while (segmentEnd >= nextKm * 1000) {
+            if (segmentStart > nextKm * 1000) {
+              break;
+            }
+
+            const remain = nextKm * 1000 - segmentStart;
+            const t = remain / segLen;
+            const lat = prev[0] + (cur[0] - prev[0]) * t;
+            const lon = prev[1] + (cur[1] - prev[1]) * t;
+            kmRecords.push({
+              km: nextKm,
+              meters: nextKm * 1000,
+              latlng: [lat, lon],
+              isMajor: nextKm % 10 === 0
+            });
+            nextKm++;
+          }
+        }
+      });
+
+      function buildKmMarker(record, showMajorLabels) {
+        const marker = L.circleMarker(record.latlng, {
+          radius: record.isMajor ? 6 : 4,
+          color: '#fff',
+          weight: 1.5,
+          fillColor: record.isMajor ? '#ff6f00' : '#1565c0',
+          fillOpacity: 1,
+          interactive: true,
+          renderer: mapRenderer,
+          bubblingMouseEvents: false
+        });
+
+        if (record.isMajor && showMajorLabels) {
+          marker.bindTooltip(`${record.km} km`, {
+            permanent: true,
+            direction: 'top',
+            className: 'km-label'
+          });
+        }
+
+        marker.on('click', () => {
+          applyMapPickSelection(record.meters, record.latlng, `Repère ${record.km} km`);
+        });
+
+        return marker;
+      }
+
+      function hideKmHoverTooltip() {
+        hoveredKmValue = null;
+        if (map.hasLayer(kmHoverTooltip)) {
+          map.removeLayer(kmHoverTooltip);
+        }
+      }
+
+      function updateKmHoverTooltip(event) {
+        if (map.getZoom() < 6 || !visibleKmRecords.length) {
+          hideKmHoverTooltip();
+          return;
+        }
+
+        const thresholdPx = map.getZoom() >= 10 ? 10 : 12;
+        const thresholdSq = thresholdPx * thresholdPx;
+        let bestRecord = null;
+        let bestDistanceSq = thresholdSq;
+
+        visibleKmRecords.forEach(record => {
+          const point = map.latLngToContainerPoint(record.latlng);
+          const dx = point.x - event.containerPoint.x;
+          const dy = point.y - event.containerPoint.y;
+          const distanceSq = dx * dx + dy * dy;
+          if (distanceSq <= bestDistanceSq) {
+            bestRecord = record;
+            bestDistanceSq = distanceSq;
+          }
+        });
+
+        if (!bestRecord) {
+          hideKmHoverTooltip();
+          return;
+        }
+
+        if (hoveredKmValue !== bestRecord.km || !map.hasLayer(kmHoverTooltip)) {
+          hoveredKmValue = bestRecord.km;
+          kmHoverTooltip
+            .setLatLng(bestRecord.latlng)
+            .setContent(`${bestRecord.km} km`);
+          if (!map.hasLayer(kmHoverTooltip)) {
+            kmHoverTooltip.addTo(map);
+          }
+        }
+      }
+
+      function getRouteContextThresholdMeters(latlng) {
+        const containerPoint = map.latLngToContainerPoint(latlng);
+        const offsetLatLng = map.containerPointToLatLng(containerPoint.add([18, 0]));
+        return map.distance(latlng, offsetLatLng);
+      }
+
+      function buildRouteContextContent(snapped) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'route-context-menu';
+        L.DomEvent.disableClickPropagation(wrapper);
+
+        const title = document.createElement('p');
+        title.className = 'route-context-title';
+        title.textContent = `Point du GR · km ${formatKm(snapped.meters / 1000)}`;
+
+        const actions = document.createElement('div');
+        actions.className = 'route-context-actions';
+
+        const startButton = document.createElement('button');
+        startButton.type = 'button';
+        startButton.className = 'route-context-action route-context-action-start';
+        startButton.textContent = 'Départ ici';
+        startButton.addEventListener('click', () => {
+          applySelectionFromMap('start', snapped.meters, snapped.latlng, 'Point du GR');
+        });
+
+        const endButton = document.createElement('button');
+        endButton.type = 'button';
+        endButton.className = 'route-context-action route-context-action-end';
+        endButton.textContent = 'Arrivée ici';
+        endButton.addEventListener('click', () => {
+          applySelectionFromMap('end', snapped.meters, snapped.latlng, 'Point du GR');
+        });
+
+        const clearButton = document.createElement('button');
+        clearButton.type = 'button';
+        clearButton.className = 'route-context-action route-context-action-clear';
+        clearButton.textContent = 'Clear';
+        clearButton.title = 'Effacer le départ et l\'arrivée';
+        clearButton.disabled = !plannerState.startSelection && !plannerState.endSelection && !plannerState.startQuery && !plannerState.endQuery;
+        clearButton.addEventListener('click', () => {
+          clearAllSelections(true);
+          renderPlanner();
+        });
+
+        actions.append(startButton, endButton, clearButton);
+        wrapper.append(title, actions);
+        return wrapper;
+      }
+
+      function handleRouteContextMenu(event) {
+        if (!plannerState.routeGeometry) {
+          return;
+        }
+
+        event.originalEvent?.preventDefault?.();
+        const snapped = nearestRoutePosition([event.latlng.lat, event.latlng.lng], plannerState.routeGeometry);
+        const thresholdMeters = getRouteContextThresholdMeters(event.latlng);
+        if (!snapped.latlng || !Number.isFinite(snapped.distanceMeters) || snapped.distanceMeters > thresholdMeters) {
+          map.closePopup(routeContextPopup);
+          return;
+        }
+
+        routeContextPopup
+          .setLatLng(snapped.latlng)
+          .setContent(buildRouteContextContent(snapped))
+          .openOn(map);
+      }
+
+      function renderVisibleKmMarkers() {
+        const zoom = map.getZoom();
+        kmLayer.clearLayers();
+        visibleKmRecords = [];
+        hideKmHoverTooltip();
+
+        if (zoom < 6) {
+          return;
+        }
+
+        const bounds = map.getBounds().pad(0.08);
+        const showMinorMarkers = zoom >= 10;
+        const showMajorLabels = zoom >= 10;
+
+        kmRecords.forEach(record => {
+          if ((!showMinorMarkers && !record.isMajor) || !bounds.contains(record.latlng)) {
+            return;
+          }
+
+          visibleKmRecords.push(record);
+          buildKmMarker(record, showMajorLabels).addTo(kmLayer);
+        });
+      }
+
+      let kmRenderTimer = null;
+
+      function scheduleKmRender() {
+        if (kmRenderTimer !== null) {
+          window.clearTimeout(kmRenderTimer);
+        }
+        kmRenderTimer = window.setTimeout(renderVisibleKmMarkers, 40);
+      }
+
+      if (!segCount) {
+        status.textContent = `Aucun tracé trouvé pour ${ref} dans OpenStreetMap.`;
+        status.classList.add('error');
+        return;
+      }
+
+      map.fitBounds(group.getBounds(), getPlannerAwareFitBoundsOptions());
+
+      const totalKm = ((displayRoute.filteredClusterCount === 0 && typeof cachedTotalKm === 'number') ? cachedTotalKm : (totalDist / 1000)).toFixed(1);
+      const segmentLabel = displayRoute.filteredSegmentCount > 0
+        ? `${segCount}/${rawSegmentCount} segment(s)`
+        : `${rawSegmentCount} segment(s)`;
+      const filterLabel = displayRoute.filteredClusterCount > 0
+        ? ` <span style="color:#666">(${displayRoute.filteredClusterCount} cluster(s) éloigné(s) masqué(s))</span>`
+        : '';
+      const baseStatusHtml = `<strong>${ref}</strong> – <strong>${totalKm} km</strong>`;
+      const stationIcon = L.divIcon({
+        className: 'station-icon',
+        html:
+          '<div class="station-marker-frame">' +
+            '<div class="station-marker-core">' +
+              '<div class="station-train-logo" aria-hidden="true">' +
+                '<svg viewBox="0 0 24 24" focusable="false">' +
+                  '<path d="M7 2a3 3 0 0 0-3 3v8a3 3 0 0 0 2 2.83V17l-1.2 1.2a1 1 0 1 0 1.4 1.4L8.83 17h6.34l2.63 2.6a1 1 0 0 0 1.4-1.4L18 17v-1.17A3 3 0 0 0 20 13V5a3 3 0 0 0-3-3H7Zm0 2h10a1 1 0 0 1 1 1v5H6V5a1 1 0 0 1 1-1Zm-1 8h12v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1Zm2 1.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm8 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM8 6h8v2H8V6Z"></path>' +
+                '</svg>' +
+              '</div>' +
+            '</div>' +
+          '</div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        tooltipAnchor: [0, -14]
+      });
+      const stationSource = Array.isArray(window.SNCF_STATION_CACHE?.stations)
+        ? window.SNCF_STATION_CACHE.stations
+        : [];
+      const routeStationBounds = group.getBounds().pad(0.08);
+      const stationRecords = stationSource
+        .filter(station => {
+          const latlng = [station.lat, station.lon];
+          return isInMetroFrance(latlng) && routeStationBounds.contains(latlng);
+        })
+        .map(station => {
+          const latlng = [station.lat, station.lon];
+          const tooltipText = station.uic ? `${station.name} (${station.uic})` : station.name;
+          return {
+            latlng,
+            marker: L.marker(latlng, {
+              icon: stationIcon,
+              keyboard: false,
+              bubblingMouseEvents: false,
+              zIndexOffset: 300
+            })
+              .bindTooltip(tooltipText, {
+                direction: 'top',
+                offset: L.point(0, -10),
+                className: 'station-tooltip'
+              })
+          };
+        });
+      let stationLoadTimer = null;
+
+      function updateStatusWithStations(visibleStationCount, showZoomHint = false) {
+        const stationText = showZoomHint
+          ? 'zoomez pour afficher les gares SNCF'
+          : `${visibleStationCount} gare${visibleStationCount > 1 ? 's' : ''} SNCF visible${visibleStationCount > 1 ? 's' : ''}`;
+        status.innerHTML = `${baseStatusHtml} <span class="station-count">${stationText}</span>`;
+      }
+
+      function loadStationsForView() {
+        const bounds = map.getBounds();
+        stationLayer.clearLayers();
+
+        if (map.getZoom() < 9) {
+          updateStatusWithStations(0, true);
+          return;
+        }
+
+        let visibleStationCount = 0;
+        stationRecords.forEach(record => {
+          if (bounds.contains(record.latlng)) {
+            record.marker.addTo(stationLayer);
+            visibleStationCount++;
+          }
+        });
+
+        updateStatusWithStations(visibleStationCount);
+      }
+
+      function scheduleStationLoad() {
+        if (stationLoadTimer !== null) {
+          window.clearTimeout(stationLoadTimer);
+        }
+        stationLoadTimer = window.setTimeout(loadStationsForView, 80);
+      }
+
+      map.on('zoomstart', () => {
+        kmLayer.clearLayers();
+        stationLayer.clearLayers();
+        hideKmHoverTooltip();
+        map.closePopup(routeContextPopup);
+      });
+      map.on('mousemove', updateKmHoverTooltip);
+      map.on('mouseout', hideKmHoverTooltip);
+      map.on('zoomend', scheduleKmRender);
+      map.on('zoomend', scheduleStationLoad);
+      map.on('moveend', scheduleKmRender);
+      map.on('moveend', scheduleStationLoad);
+      if (plannerState.routeContextHandler) {
+        map.off('contextmenu', plannerState.routeContextHandler);
+      }
+      plannerState.routeContextHandler = handleRouteContextMenu;
+      map.on('contextmenu', plannerState.routeContextHandler);
+      if (plannerState.mapPickHandler) {
+        map.off('click', plannerState.mapPickHandler);
+      }
+
+      plannerState.mapPickHandler = event => {
+        if (!plannerState.mapPickRole || !plannerState.routeGeometry) {
+          return;
+        }
+
+        const snapped = nearestRoutePosition([event.latlng.lat, event.latlng.lng], plannerState.routeGeometry);
+        if (!snapped.latlng) {
+          return;
+        }
+
+        applyMapPickSelection(snapped.meters, snapped.latlng);
+      };
+      map.on('click', plannerState.mapPickHandler);
+      renderVisibleKmMarkers();
+      updateStatusWithStations(0, map.getZoom() < 9);
+      scheduleStationLoad();
+      renderPlanner();
+      updateSelectionOverlay();
+    }
+
+    function drawCachedData(data) {
+      const displayRoute = filterDisplayedRouteSegments(
+        Array.isArray(data?.segments) ? data.segments : [],
+        Array.isArray(data?.segmentPointMeters) ? data.segmentPointMeters : null
+      );
+      updatePlannerCities(adjustDisplayedCities(data?.cities, displayRoute));
+      drawResolvedSegments({
+        segments: Array.isArray(data?.segments) ? data.segments : [],
+        segmentPointMeters: Array.isArray(data?.segmentPointMeters) ? data.segmentPointMeters : null,
+        maxJoinGap: Number(data?.maxJoinGap) || 0,
+        chainCount: Number(data?.chainCount) || 0,
+        rawSegmentCount: Number(data?.rawSegmentCount) || (Array.isArray(data?.segments) ? data.segments.length : 0),
+        totalKm: typeof data?.totalKm === 'number' ? data.totalKm : null
+      });
+    }
+
+    function readStoredRouteCache() {
+      if (!routeCacheEntry || typeof localStorage === 'undefined') {
+        return null;
+      }
+
+      try {
+        const raw = localStorage.getItem(`gr-route-cache:${refKey}`);
+        if (!raw) {
+          return null;
+        }
+
+        const parsed = JSON.parse(raw);
+        const isCurrentVersion = parsed?.generatedAt === routeCacheManifest.generatedAt;
+        const hasRequiredData = Array.isArray(parsed?.cities) && Array.isArray(parsed?.segments);
+        if (isCurrentVersion && hasRequiredData) {
+          return parsed;
+        }
+
+        localStorage.removeItem(`gr-route-cache:${refKey}`);
+        return null;
+      } catch {
+        return null;
+      }
+    }
+
+    function storeRouteCache(data) {
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
+
+      try {
+        localStorage.setItem(`gr-route-cache:${refKey}`, JSON.stringify(data));
+      } catch {
+        // Ignore storage quota issues; the local JSON file remains the source of truth.
+      }
+    }
+
+    async function resolveRouteData() {
+      const stored = readStoredRouteCache();
+      if (stored) {
+        return stored;
+      }
+
+      if (!routeCacheEntry) {
+        const unresolved = routeCacheManifest.unresolved?.[refKey];
+        throw new Error(
+          unresolved
+            ? `Tracé non disponible dans le cache local : ${unresolved}`
+            : `Aucun cache local disponible pour ${refKey}.`
+        );
+      }
+
+      const cacheFile = routeCacheEntry.file;
+      const cacheVersion = routeCacheManifest.generatedAt || 'local';
+      const response = await fetch(`${cacheFile}?v=${encodeURIComponent(cacheVersion)}`);
+      if (!response.ok) {
+        const unresolved = routeCacheManifest.unresolved?.[refKey];
+        throw new Error(
+          unresolved
+            ? `Tracé non disponible dans le cache local : ${unresolved}`
+            : `Impossible de lire le cache local (${response.status}).`
+        );
+      }
+
+      const data = await response.json();
+      const normalizedData = {
+        ...data,
+        generatedAt: routeCacheManifest.generatedAt || data.generatedAt || new Date().toISOString()
+      };
+      storeRouteCache(normalizedData);
+      return normalizedData;
+    }
+
+    startInput.addEventListener('input', event => {
+      plannerState.startQuery = event.target.value;
+      clearSelection('start');
+      renderPlanner();
+    });
+
+    endInput.addEventListener('input', event => {
+      plannerState.endQuery = event.target.value;
+      clearSelection('end');
+      renderPlanner();
+    });
+
+    daysInput.addEventListener('input', event => {
+      plannerState.days = event.target.value;
+      renderPlanner();
+    });
+
+    routePlannerToggle?.addEventListener('click', () => {
+      updateRoutePlannerVisibility(!plannerState.plannerOpen);
+    });
+
+    routePlannerClose?.addEventListener('click', () => {
+      updateRoutePlannerVisibility(false);
+    });
+
+    routePlanner.addEventListener('click', event => {
+      const actionButton = event.target.closest('[data-action]');
+      if (actionButton) {
+        const role = actionButton.dataset.role;
+        const action = actionButton.dataset.action;
+        if (action === 'pick-map') {
+          plannerState.mapPickRole = plannerState.mapPickRole === role ? null : role;
+          renderPlanner();
+          return;
+        }
+
+        if (action === 'clear-selection') {
+          clearSelection(role, true);
+          renderPlanner();
+          return;
+        }
+      }
+
+      const button = event.target.closest('.city-choice');
+      if (!button) {
+        return;
+      }
+
+      const role = button.dataset.role;
+      const cityIndex = Number.parseInt(button.dataset.cityIndex || '', 10);
+      const city = plannerState.cities[cityIndex];
+      if (!city) {
+        return;
+      }
+
+      if (role === 'start') {
+        plannerState.startQuery = city.name;
+        startInput.value = city.name;
+        setSelection(role, buildSelectionFromCity(role, cityIndex));
+      } else {
+        plannerState.endQuery = city.name;
+        endInput.value = city.name;
+        setSelection(role, buildSelectionFromCity(role, cityIndex));
+      }
+
+      plannerState.mapPickRole = null;
+
+      renderPlanner();
+    });
+
+    resolveRouteData()
+      .then(data => {
+        updateRouteTitle(routeMeta.displayName || routeCacheEntry?.displayName || data?.displayName || nom);
+        drawCachedData(data);
+      })
+      .catch(err => {
+        console.error(err);
+        status.textContent = 'Erreur lors du chargement du tracé : ' + err.message;
+        status.classList.add('error');
+      });
+  </script>
+</body>
+</html>
