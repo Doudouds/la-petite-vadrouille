@@ -6,7 +6,7 @@
 4. Générer la clé de signature Play App Signing.
 5. Copier `android/keystore.properties.example` vers `android/keystore.properties` puis renseigner la signature release.
 6. Capturer au moins 4 captures d'écran (Phone) depuis l'application réelle et vérifier les visuels générés (icon, feature graphic).
-7. Lancer `npm install` puis `npm run android:sync`.
+7. Lancer `npm install` puis `npm run android:sync` / `npm run android:open`
 8. Générer le bundle release avec `npm run android:bundle`.
 9. Tester le `.aab` sur un appareil ou via l'Internal Testing track.
 10. Remplir les sections fiche magasin, confidentialité et Data Safety dans la Play Console.
