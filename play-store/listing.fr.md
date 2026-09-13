@@ -6,22 +6,24 @@ La petite vadrouille
 
 ## Description courte
 
-Explorez les GR de France, découvrez chaque tracé et préparez vos étapes sur Android.
+Parcourez les sentiers de Grande Randonnée de France (GR) et planifiez vos étapes en localisant les gares SNCF.
 
 ## Description complète
 
-La petite vadrouille rassemble les itinéraires de Grande Randonnée de France métropolitaine dans une interface pensée pour une consultation rapide sur mobile.
+**La petite vadrouille** est votre compagnon idéal pour explorer les sentiers de Grande Randonnée (GR) en France métropolitaine. Accédez instantanément à des milliers de kilomètres de sentiers dans une interface fluide et rapide, conçue par et pour des randonneurs.
 
-Parcourez la liste des GR, filtrez les sentiers par région, découvrez un tracé détaillé et préparez une étape entre deux points à partir des villes repérées le long du parcours.
+Parcourez les tracés officiels, et préparez vos prochaines aventures en toute simplicité. Que vous soyez un marcheur occasionnel ou un randonneur aguerri, trouvez l'itinéraire qui vous convient. Retrouvez les parcours du **GR20 en Corse**, du **Sentier des Douaniers** en Bretagne, ou des voies vers **Saint-Jacques-de-Compostelle**.
 
-Fonctionnalités principales:
+**Pourquoi choisir La petite vadrouille ?**
 
-- catalogue des GR avec recherche par nom ou numéro
-- filtre régional par carte interactive
-- fiche de tracé avec distance totale et repères kilométriques
-- préparation d'étape entre deux villes du parcours
-- cache local pour rouvrir rapidement les itinéraires déjà consultés
+• 🗺️ **Catalogue Complet** : Recherchez vos sentiers par nom ou par numéro.
+• 📍 **Filtre Régional** : Utilisez la carte interactive pour trouver les randonnées autour de vous.
+• 📈 **Profils de Tracé** : Consultez les distances exactes, les profils d'altitude et les dénivelés.
+• 🚉 **Rando-Rail & Gares SNCF** : Planifiez vos départs et arrivées grâce à l'affichage des gares le long des tracés pour une randonnée éco-responsable et sans voiture.
+• ⏱️ **Planificateur d'Étapes** : Calculez la distance entre deux points d'un itinéraire en quelques clics.
+• 🌲 **Mode Hors-ligne** : Profitez du cache local pour consulter vos tracés et profils d'altitude même en zone blanche, au cœur de la nature.
 
-L'application est conçue pour rester simple et rapide: pas de compte, pas d'inscription, et un fonctionnement centré sur la consultation des tracés.
+**L'esprit vadrouille :**
+L'application est entièrement gratuite et respectueuse de votre vie privée : **pas de compte, pas d'inscription, pas de publicité.** En vadrouille fripouille !
 
-Connexion internet recommandée pour les tuiles cartographiques, certaines données d'altitude et les ressources réseau externes.
+*Note : Une connexion internet est recommandée pour le chargement initial des fonds de carte et des données altimétriques.*

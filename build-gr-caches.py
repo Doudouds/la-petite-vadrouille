@@ -77,6 +77,9 @@ PLACE_TYPES_RE = re.compile(r"^(city|town|village)$", re.I)
 PLACE_PRIORITY = {"city": 0, "town": 1, "village": 2}
 PLACE_DISTANCE_LIMITS = {"city": 2500.0, "town": 2200.0, "village": 1800.0}
 PLACE_SEARCH_RADIUS_METERS = int(max(PLACE_DISTANCE_LIMITS.values()))
+DISPLAY_OUTLIER_CLUSTER_JOIN_GAP_METERS = 20000
+DISPLAY_OUTLIER_CLUSTER_MIN_LENGTH_METERS = 20000
+DISPLAY_OUTLIER_CLUSTER_MIN_RATIO = 0.1
 REGION_DEF_RE = re.compile(r"\{\s*code:\s*'([^']+)'[\s\S]*?path:\s*'([^']+)'", re.S)
 SVG_PATH_TOKEN_RE = re.compile(r"[MLZ]|-?\d+(?:\.\d+)?")
 LOCAL_REGION_MAP_BOUNDS = {
@@ -455,6 +458,69 @@ def reorder_segments_by_connectivity(segments: list[list[list[float]]]) -> dict:
     return {"ordered_segments": ordered_segments, "max_join_gap": 0.0, "chain_count": chain_count}
 
 
+def reorder_segments_by_nearest_endpoints(segments: list[list[list[float]]]) -> dict:
+    if not segments:
+        return {"ordered_segments": [], "max_join_gap": 0.0, "chain_count": 0}
+
+    best_result: dict | None = None
+    best_score: tuple[float, float] | None = None
+
+    for seed_index, seed in enumerate(segments):
+        for reverse_seed in (False, True):
+            first = list(reversed(seed)) if reverse_seed else list(seed)
+            ordered_segments = [first]
+            used = {seed_index}
+            previous_end = first[-1]
+            max_join_gap = 0.0
+            total_join_gap = 0.0
+
+            while len(used) < len(segments):
+                candidate_index = -1
+                candidate_points: list[list[float]] | None = None
+                candidate_gap = math.inf
+
+                for index, segment in enumerate(segments):
+                    if index in used or not segment:
+                        continue
+                    start_gap = haversine(previous_end, segment[0])
+                    end_gap = haversine(previous_end, segment[-1])
+                    if end_gap < start_gap:
+                        gap = end_gap
+                        points = list(reversed(segment))
+                    else:
+                        gap = start_gap
+                        points = list(segment)
+
+                    if gap < candidate_gap:
+                        candidate_index = index
+                        candidate_points = points
+                        candidate_gap = gap
+
+                if candidate_index == -1 or candidate_points is None:
+                    break
+
+                used.add(candidate_index)
+                ordered_segments.append(candidate_points)
+                previous_end = candidate_points[-1]
+                max_join_gap = max(max_join_gap, candidate_gap)
+                total_join_gap += candidate_gap
+
+            score = (max_join_gap, total_join_gap)
+            if best_score is None or score < best_score:
+                best_score = score
+                best_result = {
+                    "ordered_segments": ordered_segments,
+                    "max_join_gap": max_join_gap,
+                    "chain_count": 1 + sum(
+                        1
+                        for index in range(1, len(ordered_segments))
+                        if haversine(ordered_segments[index - 1][-1], ordered_segments[index][0]) > 1000
+                    ),
+                }
+
+    return best_result or {"ordered_segments": [], "max_join_gap": 0.0, "chain_count": 0}
+
+
 def orient_segments(segments: list[list[list[float]]]) -> dict:
     relation_ordered = orient_segments_in_current_order(segments)
     if relation_ordered["max_join_gap"] <= 1000:
@@ -466,10 +532,15 @@ def orient_segments(segments: list[list[list[float]]]) -> dict:
 
     connectivity_ordered = reorder_segments_by_connectivity(segments)
     reoriented = orient_segments_in_current_order(connectivity_ordered["ordered_segments"])
+    if reoriented["max_join_gap"] > 1000:
+        nearest_ordered = reorder_segments_by_nearest_endpoints(reoriented["ordered_segments"])
+        if nearest_ordered["max_join_gap"] < reoriented["max_join_gap"]:
+            reoriented = nearest_ordered
+    chain_count = reoriented.get("chain_count", connectivity_ordered["chain_count"])
     return {
         "ordered_segments": reoriented["ordered_segments"],
         "max_join_gap": reoriented["max_join_gap"],
-        "chain_count": connectivity_ordered["chain_count"],
+        "chain_count": chain_count,
     }
 
 
@@ -487,7 +558,12 @@ def should_skip_relation(relation: dict, display_name: str) -> bool:
     return bool(SKIP_RELATION_RE.search(route_text))
 
 
-def extract_segments(data: dict, display_name: str, metadata: dict | None = None) -> dict:
+def extract_segments(
+    data: dict,
+    display_name: str,
+    metadata: dict | None = None,
+    route_ref: str | None = None,
+) -> dict:
     elements = data.get("elements", [])
     relations_by_id = {element["id"]: element for element in elements if element.get("type") == "relation"}
     ways_by_id = {element["id"]: element for element in elements if element.get("type") == "way"}
@@ -504,17 +580,57 @@ def extract_segments(data: dict, display_name: str, metadata: dict | None = None
         for element in elements
         if element.get("type") == "relation" and element.get("id") not in child_relation_ids
     ]
+
+    explicit_relation_ids: list[int] = []
+    if isinstance(metadata, dict):
+        for key in ["relationId", "relationIds", "orderedRelationIds"]:
+            value = metadata.get(key)
+            values = value if isinstance(value, list) else [value]
+            for item in values:
+                if isinstance(item, int):
+                    explicit_relation_ids.append(item)
+                elif isinstance(item, str) and item.isdigit():
+                    explicit_relation_ids.append(int(item))
+
+    if explicit_relation_ids:
+        selected_relations = [
+            relations_by_id[relation_id]
+            for relation_id in explicit_relation_ids
+            if relation_id in relations_by_id
+        ]
+    else:
+        normalized_route_ref = normalize_ref(route_ref)
+        selected_relations = [
+            relation
+            for relation in root_relations
+            if normalized_route_ref
+            and normalize_ref(relation.get("tags", {}).get("ref")) == normalized_route_ref
+        ]
+
+        if not selected_relations and display_name:
+            normalized_display_name = normalize_place_name(display_name)
+            selected_relations = [
+                relation
+                for relation in root_relations
+                if normalize_place_name(str(relation.get("tags", {}).get("name") or ""))
+                == normalized_display_name
+            ]
+
+    if selected_relations:
+        root_relations = selected_relations
+
     visited_relations: set[int] = set()
     segments: list[list[list[float]]] = []
 
-    def visit_relation(relation: dict | None) -> None:
+    def collect_relation_segments(relation: dict | None) -> list[list[list[float]]]:
         if not relation:
-            return
+            return []
         relation_id = relation.get("id")
         if relation_id in visited_relations:
-            return
+            return []
 
         visited_relations.add(relation_id)
+        collected: list[list[list[float]]] = []
         for member in relation.get("members", []):
             if should_skip_member(member):
                 continue
@@ -522,7 +638,7 @@ def extract_segments(data: dict, display_name: str, metadata: dict | None = None
                 child_relation = relations_by_id.get(member.get("ref"))
                 if child_relation and should_skip_relation(child_relation, display_name):
                     continue
-                visit_relation(child_relation)
+                collected.extend(collect_relation_segments(child_relation))
                 continue
             if member.get("type") != "way":
                 continue
@@ -535,11 +651,55 @@ def extract_segments(data: dict, display_name: str, metadata: dict | None = None
             latlngs = to_latlngs(geometry, metadata)
             if latlngs:
                 seen_way_ids.add(way_id)
-                segments.append(latlngs)
+                collected.append(latlngs)
+        return collected
+
+    def collect_root_groups(relation: dict) -> list[list[list[float]]]:
+        relation_id = relation.get("id")
+        if relation_id in visited_relations:
+            return []
+        visited_relations.add(relation_id)
+
+        groups: list[list[list[float]]] = []
+        direct_ways: list[list[list[float]]] = []
+
+        def flush_direct_ways() -> None:
+            if not direct_ways:
+                return
+            groups.append(collapse_ordered_segment_group(direct_ways))
+            direct_ways.clear()
+
+        for member in relation.get("members", []):
+            if should_skip_member(member):
+                continue
+            if member.get("type") == "relation":
+                child_relation = relations_by_id.get(member.get("ref"))
+                if child_relation and should_skip_relation(child_relation, display_name):
+                    continue
+                flush_direct_ways()
+                child_segments = collect_relation_segments(child_relation)
+                if child_segments:
+                    groups.append(collapse_ordered_segment_group(child_segments))
+                continue
+            if member.get("type") != "way":
+                continue
+
+            way_id = member.get("ref")
+            if way_id in seen_way_ids:
+                continue
+
+            geometry = member.get("geometry") or ways_by_id.get(way_id, {}).get("geometry")
+            latlngs = to_latlngs(geometry, metadata)
+            if latlngs:
+                seen_way_ids.add(way_id)
+                direct_ways.append(latlngs)
+
+        flush_direct_ways()
+        return [group for group in groups if len(group) >= 2]
 
     preferred_roots = [relation for relation in root_relations if not should_skip_relation(relation, display_name)]
     for relation in preferred_roots or root_relations:
-        visit_relation(relation)
+        segments.extend(collect_root_groups(relation))
 
     if not segments:
         for element in elements:
@@ -1135,6 +1295,157 @@ def nearest_route_position(point: list[float], segments: list[list[list[float]]]
     return best_distance, best_position
 
 
+def interpolate_route_point(distance_meters: float, segments: list[list[list[float]]]) -> list[float] | None:
+    remaining = max(0.0, distance_meters)
+    last_point: list[float] | None = None
+
+    for segment in segments:
+        if not segment:
+            continue
+        last_point = segment[-1]
+        for index in range(1, len(segment)):
+            start = segment[index - 1]
+            end = segment[index]
+            segment_length = haversine(start, end)
+            if segment_length <= 0:
+                continue
+            if remaining <= segment_length:
+                ratio = remaining / segment_length
+                return [
+                    start[0] + (end[0] - start[0]) * ratio,
+                    start[1] + (end[1] - start[1]) * ratio,
+                ]
+            remaining -= segment_length
+
+    return last_point[:] if last_point else None
+
+
+def reproject_cached_cities(existing_payload: dict | None, segments: list[list[list[float]]]) -> list[dict]:
+    if not isinstance(existing_payload, dict) or not isinstance(existing_payload.get("cities"), list):
+        return []
+
+    old_segments = existing_payload.get("segments")
+    if not isinstance(old_segments, list) or not old_segments:
+        return []
+
+    projected: list[dict] = []
+    for city in existing_payload["cities"]:
+        if not isinstance(city, dict):
+            continue
+        name = str(city.get("name") or "").strip()
+        try:
+            old_km = float(city.get("km"))
+        except (TypeError, ValueError):
+            continue
+        if not name or not math.isfinite(old_km) or old_km < 0:
+            continue
+
+        old_point = interpolate_route_point(old_km * 1000, old_segments)
+        if not old_point:
+            continue
+        distance_to_route, position_on_route = nearest_route_position(old_point, segments)
+        if math.isinf(distance_to_route):
+            continue
+
+        projected.append(
+            {
+                "name": name,
+                "place": str(city.get("place") or "").strip(),
+                "km": round(position_on_route / 1000, 1),
+            }
+        )
+
+    projected.sort(key=lambda item: (item["km"], normalize_place_name(item["name"])))
+    return projected
+
+
+def filter_disconnected_outlier_segments(segments: list[list[list[float]]]) -> dict:
+    if not segments:
+        return {"ordered_segments": [], "max_join_gap": 0.0, "chain_count": 0, "removed": 0}
+
+    lengths = [compute_total_distance([segment]) for segment in segments]
+    clusters: list[list[int]] = []
+    current_cluster = [0]
+    for index in range(1, len(segments)):
+        previous_end = segments[index - 1][-1]
+        current_start = segments[index][0]
+        if haversine(previous_end, current_start) <= DISPLAY_OUTLIER_CLUSTER_JOIN_GAP_METERS:
+            current_cluster.append(index)
+        else:
+            clusters.append(current_cluster)
+            current_cluster = [index]
+    clusters.append(current_cluster)
+
+    cluster_lengths = [sum(lengths[index] for index in cluster) for cluster in clusters]
+    main_length = max(cluster_lengths)
+    keep_threshold = max(
+        DISPLAY_OUTLIER_CLUSTER_MIN_LENGTH_METERS,
+        main_length * DISPLAY_OUTLIER_CLUSTER_MIN_RATIO,
+    )
+    kept_clusters = [
+        cluster
+        for cluster, cluster_length in zip(clusters, cluster_lengths)
+        if cluster_length >= keep_threshold
+    ]
+    if not kept_clusters:
+        kept_clusters = [clusters[cluster_lengths.index(main_length)]]
+
+    kept_indexes = [index for cluster in kept_clusters for index in cluster]
+    kept_segments = [segments[index] for index in kept_indexes]
+    max_join_gap = 0.0
+    chain_count = 1 if kept_segments else 0
+    for index in range(1, len(kept_segments)):
+        join_gap = haversine(kept_segments[index - 1][-1], kept_segments[index][0])
+        max_join_gap = max(max_join_gap, join_gap)
+        if join_gap > 1000:
+            chain_count += 1
+
+    return {
+        "ordered_segments": kept_segments,
+        "max_join_gap": max_join_gap,
+        "chain_count": chain_count,
+        "removed": len(segments) - len(kept_segments),
+    }
+
+
+def split_segments_at_large_gaps(
+    segments: list[list[list[float]]],
+    max_gap_meters: float = 5000,
+) -> list[list[list[float]]]:
+    split_segments: list[list[list[float]]] = []
+
+    for segment in segments:
+        if not segment or len(segment) < 2:
+            continue
+
+        current = [segment[0]]
+        for index in range(1, len(segment)):
+            previous = segment[index - 1]
+            point = segment[index]
+            if haversine(previous, point) > max_gap_meters:
+                if len(current) >= 2:
+                    split_segments.append(current)
+                current = [point]
+            else:
+                current.append(point)
+
+        if len(current) >= 2:
+            split_segments.append(current)
+
+    return split_segments
+
+
+def describe_ordered_segments(segments: list[list[list[float]]]) -> dict:
+    max_join_gap = 0.0
+    chain_count = 1 if segments else 0
+    for index in range(1, len(segments)):
+        join_gap = haversine(segments[index - 1][-1], segments[index][0])
+        max_join_gap = max(max_join_gap, join_gap)
+        if join_gap > 1000:
+            chain_count += 1
+    return {"max_join_gap": max_join_gap, "chain_count": chain_count}
+
+
 def normalize_place_name(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip()).casefold()
 
@@ -1416,7 +1727,7 @@ def resolve_route(route: dict, metadata: dict) -> tuple[dict, dict]:
                     timeout_seconds=OVERPASS_ROUTE_FETCH_TIMEOUT_SECONDS,
                     require_elements=True,
                 )
-                extracted = extract_segments(data, display_name, metadata)
+                extracted = extract_segments(data, display_name, metadata, route_ref)
                 if not extracted["ordered_segments"]:
                     raise RuntimeError(f"Aucun tracé trouvé pour la relation {relation_id} de {route_ref}")
 
@@ -1442,7 +1753,7 @@ def resolve_route(route: dict, metadata: dict) -> tuple[dict, dict]:
                 timeout_seconds=OVERPASS_ROUTE_FETCH_TIMEOUT_SECONDS,
                 require_elements=True,
             )
-            extracted = extract_segments(data, display_name, metadata)
+            extracted = extract_segments(data, display_name, metadata, route_ref)
             if extracted["ordered_segments"]:
                 return extracted, {"source": source_url}
         except Exception as error:  # noqa: BLE001
@@ -1668,19 +1979,43 @@ def write_cache_indexes(
     )
 
 
+def read_git_route_cache(route_ref: str) -> dict | None:
+    try:
+        completed = subprocess.run(
+            ["git", "show", f"HEAD:route-cache/{route_ref}.json"],
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
+        if completed.returncode != 0:
+            return None
+        payload = json.loads(completed.stdout.decode("utf-8"))
+        return payload if isinstance(payload, dict) and payload.get("segments") else None
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
 def read_existing_route_cache(route_ref: str) -> dict | None:
     cache_path = ROUTE_CACHE_DIR / f"{route_ref}.json"
-    if not cache_path.exists():
-        return None
+    payload = None
+    if cache_path.exists():
+        try:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = None
 
-    try:
-        payload = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    if isinstance(payload, dict) and payload.get("segments"):
+        if payload.get("citiesSkipped") is not True:
+            return payload
 
-    if not isinstance(payload, dict) or not payload.get("segments"):
-        return None
-    return payload
+    # Un cache local peut avoir été généré avec --skip-cities. En développement,
+    # relire la version suivie par Git permet de réutiliser ses villes sans
+    # relancer une requête Overpass uniquement pour les repositionner.
+    git_payload = read_git_route_cache(route_ref)
+    if git_payload:
+        return git_payload
+
+    return payload if isinstance(payload, dict) and payload.get("segments") else None
 
 
 def read_existing_index(js_path: Path, prefix: str) -> dict | None:
@@ -1702,6 +2037,64 @@ def read_existing_index(js_path: Path, prefix: str) -> dict | None:
         return None
 
     return payload if isinstance(payload, dict) else None
+
+
+def repair_route_cache_payload(
+    payload: dict,
+    city_source_payload: dict | None = None,
+) -> tuple[dict, int, bool]:
+    segments = payload.get("segments")
+    if not isinstance(segments, list) or not segments:
+        return payload, 0, False
+
+    split_segments = split_segments_at_large_gaps(segments)
+    filtered = filter_disconnected_outlier_segments(split_segments)
+    kept_segments = filtered["ordered_segments"]
+    cached_segments, cached_point_meters = prepare_segments_for_cache(kept_segments)
+    cities = reproject_cached_cities(city_source_payload or payload, kept_segments)
+
+    updated = dict(payload)
+    updated["generatedAt"] = BUILD_GENERATED_AT
+    updated["rawSegmentCount"] = len(kept_segments)
+    updated["chainCount"] = filtered["chain_count"]
+    updated["maxJoinGap"] = round(filtered["max_join_gap"], 1)
+    updated["totalKm"] = round(compute_total_distance(kept_segments) / 1000, 1)
+    updated["cities"] = cities
+    updated["citiesSkipped"] = not bool(cities) and payload.get("citiesSkipped") is True
+    updated["segmentPointMeters"] = cached_point_meters
+    updated["segments"] = cached_segments
+    changed = (
+        filtered["removed"] > 0
+        or len(split_segments) != len(segments)
+        or payload.get("chainCount") != filtered["chain_count"]
+        or payload.get("maxJoinGap") != updated["maxJoinGap"]
+    )
+    return updated, filtered["removed"], changed
+
+
+def split_route_cache_payload(payload: dict) -> tuple[dict, bool]:
+    segments = payload.get("segments")
+    if not isinstance(segments, list) or not segments:
+        return payload, False
+
+    split_segments = split_segments_at_large_gaps(segments)
+    if len(split_segments) == len(segments):
+        return payload, False
+
+    metadata = describe_ordered_segments(split_segments)
+    cached_segments, cached_point_meters = prepare_segments_for_cache(split_segments)
+    cities = reproject_cached_cities(payload, split_segments)
+    updated = dict(payload)
+    updated["generatedAt"] = BUILD_GENERATED_AT
+    updated["rawSegmentCount"] = len(split_segments)
+    updated["chainCount"] = metadata["chain_count"]
+    updated["maxJoinGap"] = round(metadata["max_join_gap"], 1)
+    updated["totalKm"] = round(compute_total_distance(split_segments) / 1000, 1)
+    updated["cities"] = cities
+    updated["citiesSkipped"] = not bool(cities) and payload.get("citiesSkipped") is True
+    updated["segmentPointMeters"] = cached_point_meters
+    updated["segments"] = cached_segments
+    return updated, True
 
 
 def route_bbox(segments: list[list[list[float]]]) -> tuple[float, float, float, float]:
@@ -1787,7 +2180,24 @@ def main() -> int:
     ROUTE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     skip_cities = "--skip-cities" in sys.argv[1:]
-    raw_args = [value for value in sys.argv[1:] if value not in {"--reindex-only", "--skip-cities"}]
+    refresh_cities = "--refresh-cities" in sys.argv[1:]
+    repair_existing = "--repair-existing" in sys.argv[1:]
+    split_existing = "--split-existing" in sys.argv[1:]
+    restore_git_cities = "--restore-git-cities" in sys.argv[1:]
+    restore_git_cache = "--restore-git-cache" in sys.argv[1:]
+    raw_args = [
+        value
+        for value in sys.argv[1:]
+        if value not in {
+            "--reindex-only",
+            "--skip-cities",
+            "--refresh-cities",
+            "--repair-existing",
+            "--split-existing",
+            "--restore-git-cities",
+            "--restore-git-cache",
+        }
+    ]
     reindex_only = "--reindex-only" in sys.argv[1:]
     only_refs = {normalize_ref(value) for value in raw_args}
     existing_manifest = read_existing_index(ROUTE_MANIFEST_PATH, "window.GR_ROUTE_CACHE_MANIFEST = ") or {}
@@ -1828,6 +2238,99 @@ def main() -> int:
         print(json.dumps({"cachedRoutes": len(manifest_routes), "unresolved": len(unresolved)}, ensure_ascii=False))
         return 0 if manifest_routes else 1
 
+    if repair_existing:
+        repair_refs = {normalize_ref(value) for value in raw_args}
+        repaired_count = 0
+        removed_segments = 0
+        for cache_path in sorted(ROUTE_CACHE_DIR.glob("*.json"), key=lambda path: sort_ref_key(path.stem)):
+            route_ref = normalize_ref(cache_path.stem)
+            if repair_refs and route_ref not in repair_refs:
+                continue
+
+            payload = read_existing_route_cache(route_ref)
+            if not payload:
+                continue
+
+            city_source_payload = read_git_route_cache(route_ref) if restore_git_cities else payload
+            repaired_payload, removed, changed = repair_route_cache_payload(payload, city_source_payload)
+            if not changed:
+                continue
+
+            cache_path.write_text(
+                json.dumps(repaired_payload, separators=(",", ":"), ensure_ascii=False),
+                encoding="utf-8",
+            )
+            repaired_count += 1
+            removed_segments += removed
+            print(f"repaired {route_ref}: {removed} outlier segment(s) removed", flush=True)
+
+        region_shapes = load_region_shapes()
+        manifest_routes, region_membership = index_local_route_caches(metadata_map, region_shapes)
+        unresolved = existing_manifest.get("unresolved") or {}
+        write_cache_indexes(manifest_routes, unresolved, region_membership)
+        print(
+            json.dumps(
+                {"repairedRoutes": repaired_count, "removedSegments": removed_segments},
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
+    if restore_git_cache:
+        restore_refs = {normalize_ref(value) for value in raw_args}
+        restored_count = 0
+        for cache_path in sorted(ROUTE_CACHE_DIR.glob("*.json"), key=lambda path: sort_ref_key(path.stem)):
+            route_ref = normalize_ref(cache_path.stem)
+            if restore_refs and route_ref not in restore_refs:
+                continue
+
+            payload = read_git_route_cache(route_ref)
+            if not payload:
+                continue
+            cache_path.write_text(
+                json.dumps(payload, separators=(",", ":"), ensure_ascii=False),
+                encoding="utf-8",
+            )
+            restored_count += 1
+            print(f"restored {route_ref} from Git", flush=True)
+
+        region_shapes = load_region_shapes()
+        manifest_routes, region_membership = index_local_route_caches(metadata_map, region_shapes)
+        unresolved = existing_manifest.get("unresolved") or {}
+        write_cache_indexes(manifest_routes, unresolved, region_membership)
+        print(json.dumps({"restoredRoutes": restored_count}, ensure_ascii=False))
+        return 0
+
+    if split_existing:
+        split_refs = {normalize_ref(value) for value in raw_args}
+        split_count = 0
+        for cache_path in sorted(ROUTE_CACHE_DIR.glob("*.json"), key=lambda path: sort_ref_key(path.stem)):
+            route_ref = normalize_ref(cache_path.stem)
+            if split_refs and route_ref not in split_refs:
+                continue
+
+            payload = read_existing_route_cache(route_ref)
+            if not payload:
+                continue
+
+            split_payload, changed = split_route_cache_payload(payload)
+            if not changed:
+                continue
+
+            cache_path.write_text(
+                json.dumps(split_payload, separators=(",", ":"), ensure_ascii=False),
+                encoding="utf-8",
+            )
+            split_count += 1
+            print(f"split {route_ref}: large internal gaps isolated", flush=True)
+
+        region_shapes = load_region_shapes()
+        manifest_routes, region_membership = index_local_route_caches(metadata_map, region_shapes)
+        unresolved = existing_manifest.get("unresolved") or {}
+        write_cache_indexes(manifest_routes, unresolved, region_membership)
+        print(json.dumps({"splitRoutes": split_count}, ensure_ascii=False))
+        return 0
+
     if only_refs:
         routes = [route for route in routes if normalize_ref(route.get("ref")) in only_refs]
 
@@ -1852,7 +2355,8 @@ def main() -> int:
         metadata = metadata_map.get(route_ref, {})
         display_name = metadata.get("displayName") or route.get("nom") or route_ref
         summary = metadata.get("summary") or route.get("description") or ""
-        existing_payload = None if route_ref in only_refs else read_existing_route_cache(route_ref)
+        previous_payload = read_existing_route_cache(route_ref)
+        existing_payload = None if route_ref in only_refs else previous_payload
         if not existing_payload:
             pending_routes.append(route)
             continue
@@ -1873,6 +2377,7 @@ def main() -> int:
         metadata = metadata_map.get(route_ref, {})
         display_name = metadata.get("displayName") or route.get("nom") or route_ref
         summary = metadata.get("summary") or route.get("description") or ""
+        previous_payload = read_existing_route_cache(route_ref)
         print(f"[{index}/{len(pending_routes)}] {route_ref} ...", flush=True)
 
         try:
@@ -1890,13 +2395,19 @@ def main() -> int:
             if skip_cities:
                 print("    city lookup skipped by flag", flush=True)
             else:
-                try:
-                    print("    fetching nearby cities...", flush=True)
-                    cities = resolve_route_cities(route_ref, display_name, metadata, ordered_segments)
-                    print(f"    cities ok: {len(cities)} retained", flush=True)
-                except Exception as city_error:  # noqa: BLE001
-                    cities_skipped = True
-                    print(f"    city lookup skipped: {city_error}", flush=True)
+                if not refresh_cities:
+                    cities = reproject_cached_cities(previous_payload, ordered_segments)
+                    if cities:
+                        print(f"    cities reprojected locally: {len(cities)} retained", flush=True)
+
+                if not cities:
+                    try:
+                        print("    fetching nearby cities...", flush=True)
+                        cities = resolve_route_cities(route_ref, display_name, metadata, ordered_segments)
+                        print(f"    cities ok: {len(cities)} retained", flush=True)
+                    except Exception as city_error:  # noqa: BLE001
+                        cities_skipped = True
+                        print(f"    city lookup skipped: {city_error}", flush=True)
 
             payload = {
                 "generatedAt": BUILD_GENERATED_AT,

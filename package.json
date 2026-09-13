@@ -5,6 +5,8 @@
   "description": "Packaging Android et préparation Play Store pour l'application La petite vadrouille.",
   "packageManager": "npm@10.9.3",
   "scripts": {
+    "routes:check": "node ./scripts/check-route-coherence.mjs",
+    "routes:repair": "node ./scripts/repair-route-breaks.mjs",
     "mobile:prepare": "node ./scripts/prepare-mobile-web.mjs",
     "android:add": "npm run mobile:prepare && npx cap add android",
     "android:assets": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-android-branding.ps1",

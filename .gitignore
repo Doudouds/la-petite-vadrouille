@@ -11,4 +11,6 @@ android/app/build/
 *.keystore
 keystore.properties
 
+route-cache/.gap-bridges.json
+
 .idea/
