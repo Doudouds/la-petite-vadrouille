@@ -6,6 +6,8 @@
   const regionStatus = document.getElementById('region-status');
   const resultsMeta = document.getElementById('results-meta');
   const clearRegionButton = document.getElementById('clear-region');
+  const clearSearchButton = document.getElementById('clear-search');
+  const routeCount = document.getElementById('route-count');
   const regionMap = document.getElementById('region-map');
 
   const REGION_DEFS = window.FRANCE_REGION_DEFS || [];
@@ -37,6 +39,9 @@
       refKey: normalizeRef(gr.ref),
       displayName,
       summary,
+      totalKm: Number.isFinite(Number(gr.totalKm))
+        ? Number(gr.totalKm)
+        : (Number.isFinite(Number(meta.officialKm)) ? Number(meta.officialKm) : null),
       searchText: [gr.ref, gr.nom, displayName, gr.description, summary].join(' ').toLowerCase()
     };
   }
@@ -45,7 +50,8 @@
     const manifestRoutes = Object.entries(ROUTE_CACHE_MANIFEST).map(([ref, route]) => ({
       ref,
       nom: route.displayName || ref,
-      description: route.summary || ''
+      description: route.summary || '',
+      totalKm: route.totalKm
     }));
 
     return manifestRoutes.length ? manifestRoutes : GR_LIST;
@@ -54,6 +60,15 @@
   const baseRoutes = Array.from(
     new Map(getRouteSourceList().map(gr => [normalizeRef(gr.ref), enrichRoute(gr)])).values()
   );
+
+  function formatRouteDistance(value) {
+    const distance = Number(value);
+    if (!Number.isFinite(distance) || distance <= 0) {
+      return '';
+    }
+
+    return `${distance >= 100 ? Math.round(distance) : distance.toFixed(1)} km`;
+  }
 
   function setRegionStatus(message, isError = false) {
     regionStatus.textContent = message;
@@ -154,14 +169,30 @@
 
     grid.innerHTML = '';
 
+    if (routeCount) {
+      routeCount.textContent = baseRoutes.length;
+    }
+
+    if (clearSearchButton) {
+      clearSearchButton.hidden = !state.search;
+    }
+
     filteredRoutes.forEach(route => {
       const card = document.createElement('a');
       card.className = 'gr-card';
       card.href = `gr.html?ref=${encodeURIComponent(route.ref)}&nom=${encodeURIComponent(route.displayName)}`;
+      const distance = formatRouteDistance(route.totalKm);
       card.innerHTML = `
-        <span class="ref">${route.ref}</span>
+        <div class="gr-card-topline">
+          <span class="ref">${route.ref}</span>
+          <span class="gr-card-arrow" aria-hidden="true">↗</span>
+        </div>
         <h2>${route.displayName}</h2>
         <p>${route.summary}</p>
+        <div class="gr-card-meta">
+          ${distance ? `<span>${distance}</span>` : ''}
+          <span>Voir le tracé</span>
+        </div>
       `;
       grid.appendChild(card);
     });
@@ -180,6 +211,21 @@
   search.addEventListener('input', event => {
     state.search = event.target.value;
     render();
+  });
+
+  clearSearchButton?.addEventListener('click', () => {
+    state.search = '';
+    search.value = '';
+    search.focus();
+    render();
+  });
+
+  document.addEventListener('keydown', event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      search.focus();
+      search.select();
+    }
   });
 
   clearRegionButton.addEventListener('click', () => {

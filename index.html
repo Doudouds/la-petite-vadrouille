@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Explorez les GR de France et ouvrez chaque tracé comme une application installable sur Android." />
   <meta name="application-name" content="La petite vadrouille" />
-  <meta name="theme-color" content="#1b5e20" />
+  <meta name="theme-color" content="#19483b" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -14,17 +14,25 @@
   <link rel="icon" href="logo.png" />
   <link rel="apple-touch-icon" href="logo.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css?v=20260521" />
+  <link rel="stylesheet" href="style.css?v=20260919" />
 </head>
 <body>
-  <header class="site-header">
+  <header class="site-header site-header-home">
     <div class="site-header-main">
       <a class="site-logo-link" href="index.html" aria-label="Retour à l'accueil">
         <img class="site-logo" src="logo.png" alt="Logo botte de sept lieues" />
       </a>
       <div class="site-header-copy">
+        <p class="site-eyebrow">Grandes randonnées en France</p>
         <h1>La petite vadrouille</h1>
-        <p>Cliquez sur un sentier pour afficher son tracé GPS sur la carte.</p>
+        <p>Choisissez un sentier, préparez votre étape et partez l’esprit léger.</p>
+      </div>
+      <div class="site-header-actions">
+        <span class="header-note">Votre compagnon de route</span>
+        <button type="button" class="install-app-button" data-action="install-app" hidden>
+          <span aria-hidden="true">↓</span>
+          Installer l’application
+        </button>
       </div>
     </div>
   </header>
@@ -34,8 +42,9 @@
       <div class="region-card">
         <div class="region-card-header">
           <div>
-            <h2>Filtrer par région</h2>
-            <p>Choisissez une région sur la mini-carte pour filtrer les GR présents sur ce territoire.</p>
+            <p class="section-kicker">Affinez votre recherche</p>
+            <h2>Explorer par région</h2>
+            <p>Choisissez une région pour afficher les sentiers disponibles autour de vous.</p>
           </div>
           <button type="button" class="region-reset" id="clear-region">Tout voir</button>
         </div>
@@ -47,10 +56,34 @@
     </aside>
 
     <section class="list-panel">
+      <section class="explore-intro" aria-labelledby="explore-title">
+        <div>
+          <p class="section-kicker">Explorez à votre rythme</p>
+          <h2 id="explore-title">Choisissez un sentier à explorer</h2>
+          <p>Des itinéraires pour une escapade de quelques heures ou une grande traversée.</p>
+        </div>
+        <div class="explore-stat" aria-label="Nombre d'itinéraires disponibles">
+          <strong id="route-count">—</strong>
+          <span>itinéraires<br />à découvrir</span>
+        </div>
+      </section>
+
       <div class="search-bar">
-        <label class="search-label" for="search">Nom ou numéro du GR</label>
-        <input type="search" id="search" placeholder="Écrivez le nom ou le numéro d'un GR..." />
-        <p class="search-hint">Le filtre s'applique au fur et à mesure que vous tapez.</p>
+        <div class="search-heading">
+          <div>
+            <p class="section-kicker">Votre prochaine étape</p>
+            <label class="search-label" for="search">Rechercher un GR</label>
+          </div>
+          <kbd>⌘ K</kbd>
+        </div>
+        <div class="search-input-wrap">
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false"><path d="m20.3 19-4.4-4.4a7.2 7.2 0 1 0-1.3 1.3l4.4 4.4a.9.9 0 0 0 1.3-1.3ZM5.2 10.4a5.2 5.2 0 1 1 10.4 0 5.2 5.2 0 0 1-10.4 0Z"></path></svg>
+          </span>
+          <input type="search" id="search" placeholder="Nom ou numéro du GR" autocomplete="off" />
+          <button type="button" class="search-clear" id="clear-search" aria-label="Effacer la recherche" hidden>×</button>
+        </div>
+        <p class="search-hint">La liste se met à jour pendant votre recherche.</p>
       </div>
       <div class="results-meta" id="results-meta"></div>
       <div class="gr-grid" id="grid"></div>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260521-pwa-1';
+const CACHE_VERSION = '20260919-layout-1';
 const SHELL_CACHE = `gr-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `gr-data-${CACHE_VERSION}`;
 const CDN_CACHE = `gr-cdn-${CACHE_VERSION}`;
@@ -26,7 +26,8 @@ const PASSTHROUGH_HOSTS = new Set([
   'api.open-meteo.com',
   'overpass.kumi.systems',
   'overpass.openstreetmap.fr',
-  'overpass-api.de'
+  'overpass-api.de',
+  'tile.openstreetmap.org'
 ]);
 
 function normalizePathname(pathname) {
@@ -154,7 +155,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  if (PASSTHROUGH_HOSTS.has(url.hostname) || url.hostname.endsWith('.cartocdn.com')) {
+  if (PASSTHROUGH_HOSTS.has(url.hostname)) {
     return;
   }
 
