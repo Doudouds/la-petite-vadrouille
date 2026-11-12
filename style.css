@@ -2179,6 +2179,18 @@ button:focus-visible, .nearby-card:focus-visible { outline: 3px solid #d68b45; o
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.planner-map-selection {
+  margin: 0 0 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-inline-start: 4px solid #19483b;
+  border-radius: 10px;
+  background: #e3f0e7;
+  color: #19483b;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .planner-navigation { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; }
 .planner-navigation .primary-button { margin-left: auto; }
 .planner-footnote { font-size: 0.78rem; color: #69766c; line-height: 1.45; }

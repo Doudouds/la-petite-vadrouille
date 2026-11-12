@@ -1,5 +1,5 @@
 const CACHE_VERSION = '20261112-access-1';
-const SHELL_CACHE = 'gr-shell-20261112-planner-1';
+const SHELL_CACHE = 'gr-shell-20261112-planner-2';
 const DATA_CACHE = `gr-data-${CACHE_VERSION}`;
 const CDN_CACHE = `gr-cdn-${CACHE_VERSION}`;
 

@@ -241,6 +241,30 @@ const fixture = {
     await expect(page.locator('#route-access')).toBeHidden();
     await expect(page.locator('.access-route-line')).toHaveCount(0);
     console.log('Pedestrian access: nearest point, orange path, opt-in, movement, precision, offline fallback, cancellation and stop OK');
+
+    await page.click('#route-planner-toggle');
+    for (const [role, meters, nextPanel] of [['start', 300, 'end'], ['end', 1500, 'summary']]) {
+      await page.click(`[data-step="${role}"]`);
+      await page.click(`[data-action="pick-map"][data-role="${role}"]`);
+      const point = await page.evaluate(meters => {
+        const latlng = getLatLngAtMeters(plannerState.routeGeometry, meters);
+        map.setView(latlng, 15, { animate: false });
+        const { x, y } = map.latLngToContainerPoint(latlng);
+        return { x, y };
+      }, meters);
+      await page.locator('#map').click({ position: point });
+      await expect(page.locator(`[data-panel="${nextPanel}"]`)).toBeVisible();
+      const confirmation = page.locator(`#planner-map-${role}`);
+      await expect(confirmation).toBeInViewport();
+      await expect(confirmation).toContainText('Point sélectionné sur la carte');
+      await expect(confirmation).toHaveCSS('font-weight', '700');
+    }
+    await expect(page.locator('#planner-map-start')).toBeInViewport();
+    await page.click('[data-step="start"]');
+    await page.click('[data-action="clear-selection"][data-role="start"]');
+    await expect(page.locator('#planner-map-start')).toBeHidden();
+    await expect(page.locator('#planner-map-end')).toBeVisible();
+    console.log('Map selections: departure and arrival confirmations stay visible after automatic step changes');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

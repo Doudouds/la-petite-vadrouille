@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=20261112-planner-1" />
+  <link rel="stylesheet" href="style.css?v=20261112-planner-2" />
 </head>
 <body class="route-page">
   <header class="site-header site-header-route">
@@ -81,6 +81,10 @@
         <button type="button" data-step="end"><b>2 · Arrivée</b><span id="step-end-label">À choisir</span></button>
         <button type="button" data-step="summary"><b>3 · Résumé</b><span>Votre étape</span></button>
       </nav>
+      <div role="status" aria-atomic="false">
+        <p id="planner-map-start" class="planner-map-selection" hidden></p>
+        <p id="planner-map-end" class="planner-map-selection" hidden></p>
+      </div>
       <p id="planner-instruction" class="route-planner-intro">D’où souhaitez-vous partir ?</p>
 
       <section class="planner-step" data-panel="start">
@@ -326,8 +330,8 @@
     }
 
     function finishSelection(role) {
-      renderPlanner();
       updateRoutePlannerVisibility(true);
+      renderPlanner();
       setPlannerStep(role === 'start' ? 'end' : 'summary');
     }
 
@@ -1158,11 +1162,11 @@ out geom;
       };
     }
 
-    function buildSelectionFromMap(role, meters, latlng, label = 'Point carte') {
+    function buildRoutePointSelection(role, meters, latlng, label, source) {
       const clampedMeters = Math.max(0, Math.min(plannerState.routeGeometry?.totalMeters || 0, meters));
       return {
         role,
-        source: 'map',
+        source,
         label,
         name: label,
         km: clampedMeters / 1000,
@@ -1176,7 +1180,7 @@ out geom;
         return false;
       }
 
-      setSelection(role, buildSelectionFromMap(role, meters, latlng, label));
+      setSelection(role, buildRoutePointSelection(role, meters, latlng, label, 'map'));
       plannerState.mapPickRole = null;
       if (plannerState.routeContextPopup) {
         map.closePopup(plannerState.routeContextPopup);
@@ -1588,6 +1592,31 @@ out geom;
       if (gaps.length) plannerSummary.insertAdjacentHTML('beforeend', `<p class="route-integrity-warning">${gaps.length} interruption(s) du tracé sur cette étape. La distance exclut les passages manquants ; vérifiez la liaison sur le terrain avant de partir.</p>`);
     }
 
+    function formatPlannerPoint(selection) {
+      return `${selection.name} · km ${formatKm(selection.km)}`;
+    }
+
+    function renderSelectionHint(hint, role, selection) {
+      if (plannerState.mapPickRole === role) {
+        const target = role === 'start' ? 'le départ' : 'l’arrivée';
+        hint.textContent = `Cliquez sur le tracé ou sur un repère kilométrique pour définir ${target}.`;
+      } else if (selection?.source === 'city') {
+        hint.textContent = `Ville sélectionnée : ${formatPlannerPoint(selection)}`;
+      } else {
+        hint.textContent = selection?.source === 'location' ? formatPlannerPoint(selection) : '';
+      }
+    }
+
+    function renderMapSelection(role, selection) {
+      const confirmation = document.getElementById(`planner-map-${role}`);
+      const roleLabel = role === 'start' ? 'Départ' : 'Arrivée';
+      const text = selection?.source === 'map'
+        ? `${roleLabel} · Point sélectionné sur la carte : ${formatPlannerPoint(selection)}`
+        : '';
+      confirmation.hidden = !text;
+      if (confirmation.textContent !== text) confirmation.textContent = text;
+    }
+
     function renderPlanner() {
       renderCityChoices('start');
       renderCityChoices('end');
@@ -1605,12 +1634,10 @@ out geom;
       if (endClearButton) {
         endClearButton.disabled = !endSelection && !plannerState.endQuery;
       }
-      startHint.textContent = plannerState.mapPickRole === 'start'
-        ? 'Cliquez sur le tracé ou sur un repère kilométrique pour définir le départ.'
-        : (startSelection ? `${startSelection.source === 'city' ? 'Ville sélectionnée' : 'Point sélectionné sur la carte'} : ${startSelection.name} · km ${formatKm(startSelection.km)}` : '');
-      endHint.textContent = plannerState.mapPickRole === 'end'
-        ? 'Cliquez sur le tracé ou sur un repère kilométrique pour définir l\'arrivée.'
-        : (endSelection ? `${endSelection.source === 'city' ? 'Ville sélectionnée' : 'Point sélectionné sur la carte'} : ${endSelection.name} · km ${formatKm(endSelection.km)}` : '');
+      renderSelectionHint(startHint, 'start', startSelection);
+      renderSelectionHint(endHint, 'end', endSelection);
+      renderMapSelection('start', startSelection);
+      renderMapSelection('end', endSelection);
       map.getContainer().classList.toggle('route-pick-active', Boolean(plannerState.mapPickRole));
       document.getElementById('map-pick-prompt').hidden = !plannerState.mapPickRole;
       document.getElementById('map-pick-text').textContent = plannerState.mapPickRole === 'start' ? 'Touchez le sentier pour placer le départ.' : 'Touchez le sentier pour placer l’arrivée.';
@@ -2558,7 +2585,7 @@ out geom;
     window.createHikeController({
       map, renderer: mapRenderer, state: plannerState,
       chooseStart(snapped) {
-        setSelection('start', buildSelectionFromMap('start', snapped.meters, snapped.latlng, 'Ma position'));
+        setSelection('start', buildRoutePointSelection('start', snapped.meters, snapped.latlng, 'Ma position', 'location'));
         finishSelection('start');
       },
       openArrival() { setPlannerStep('end'); updateRoutePlannerVisibility(true); },
