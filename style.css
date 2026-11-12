@@ -2128,3 +2128,89 @@ body:has(#map) {
 @media (max-height: 500px) and (max-width: 720px) {
   .route-page:has(.route-planner.is-open) { grid-template-rows: auto 0 minmax(0, 1fr) auto; }
 }
+
+/* Location and the three-step planner share the existing map grid. */
+[hidden] { display: none !important; }
+.primary-button, .text-button, .location-choice {
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.primary-button { background: var(--forest-dark, #19483b); color: white; }
+.text-button { color: var(--forest-dark, #19483b); background: transparent; }
+.location-choice { background: #edf4f0; color: #19483b; border-color: #c7d9cf; width: 100%; margin-bottom: 1rem; }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, .nearby-card:focus-visible { outline: 3px solid #d68b45; outline-offset: 3px; }
+.nearby-panel { border-radius: 20px; background: #f0f5ef; border: 1px solid #dce7db; padding: 1.25rem; margin-bottom: 1.5rem; }
+.catalog-layout > .nearby-panel { grid-column: 1 / -1; margin-bottom: 0; }
+.region-card > summary { list-style: none; cursor: pointer; }
+.region-card > summary::-webkit-details-marker { display: none; }
+.region-card > summary::after { content: '⌄'; color: #19483b; font-size: 1.2rem; }
+.region-card[open] > summary::after { content: '⌃'; }
+.region-card:not([open]) .region-card-header p { display: none; }
+.region-card:not([open]) .region-card-header h2 { margin: 0; }
+.nearby-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.nearby-heading h2 { margin: 0; font-size: 1.4rem; color: #19483b; }
+#nearby-status { font-size: 0.88rem; color: #526357; line-height: 1.5; }
+.nearby-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
+.nearby-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; background: white; border-radius: 14px; text-decoration: none; color: #19483b; overflow-wrap: anywhere; }
+.nearby-card > span { font-size: 0.85rem; }
+.nearby-distance { margin-top: auto; color: #68604a; }
+.gr-card { content-visibility: auto; contain-intrinsic-size: auto 250px; }
+.planner-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; margin: 1rem 0; }
+.planner-steps button { border: 1px solid #dbe4dc; border-radius: 12px; background: #f7f8f4; color: #647064; padding: 0.7rem 0.4rem; min-height: 60px; text-align: left; font: inherit; cursor: pointer; min-width: 0; }
+.planner-steps button[aria-current] { background: #19483b; border-color: #19483b; color: white; }
+.planner-steps b { display: block; font-size: 0.78rem; }
+.planner-steps span { display: block; font-size: 0.7rem; margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.planner-navigation { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; }
+.planner-navigation .primary-button { margin-left: auto; }
+.planner-footnote { font-size: 0.78rem; color: #69766c; line-height: 1.45; }
+.route-page .city-choice-list { max-height: none; overflow: visible; padding-right: 0; }
+.route-page .city-choice { min-height: 52px; }
+.route-page .route-planner-card-header { gap: 0.5rem; }
+.route-page .route-planner-card h2 { font-size: 1.2rem; }
+.route-page .route-planner-close-button { font-size: 0.78rem; }
+.route-page .route-planner.is-empty .route-planner-card { display: block; }
+.hike-panel { margin-bottom: 0.5rem; max-width: 560px; }
+.hike-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.hike-message { font-size: 0.78rem; line-height: 1.4; margin: 0.4rem 0; max-width: 52ch; }
+.hike-progress { display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; background: #f5eee3; border-radius: 12px; padding: 0.6rem 0.75rem; margin: 0.5rem 0; }
+.hike-progress strong { display: block; font-size: 1.6rem; color: #19483b; }
+.hike-progress span { display: block; font-size: 0.78rem; overflow-wrap: anywhere; }
+.hike-progress > div { min-width: 0; }
+.hike-progress button { flex: 0 0 auto; max-width: 110px; font-size: 0.75rem; }
+.route-planner.is-open .hike-panel { display: none; }
+.route-integrity-warning { color: #805013; background: #fff4d9; border-radius: 10px; padding: 0.65rem; font-size: 0.8rem; line-height: 1.4; }
+#planner-location-message { font-size: 0.85rem; color: #805013; }
+.route-page:has(.route-planner.is-collapsed) { grid-template-columns: minmax(260px, 400px) minmax(0, 1fr); }
+@media (max-height: 500px) and (min-width: 721px) {
+  .route-page:has(.route-planner.is-collapsed) { grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); }
+  .route-page:has(.route-planner.is-collapsed) #map { grid-area: 2 / 2; }
+  .route-page .route-planner.is-collapsed { grid-area: 2 / 1; overflow: auto; padding: 0.5rem; }
+  .route-page:has(.route-planner.is-collapsed) #status { grid-area: 3 / 1 / 4 / -1; padding: 0.4rem 0.75rem; }
+  .route-page .site-header-route .site-logo-link,
+  .route-page .site-header-route .site-eyebrow,
+  .route-page .route-header-subtitle { display: none; }
+  .route-page .site-header-route h1 { font-size: 1.1rem; }
+  .route-page .site-header-route { padding-top: max(0.4rem, env(safe-area-inset-top, 0px)); padding-bottom: 0.4rem; }
+}
+@media (max-width: 720px) {
+  .nearby-results { grid-template-columns: minmax(0, 1fr); }
+  .nearby-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 0.75rem; }
+  .nearby-distance { grid-column: 2; }
+  .route-page:has(.route-planner.is-collapsed) { grid-template-columns: minmax(0, 1fr); }
+  .route-page .route-planner.is-collapsed { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+  .hike-panel { margin: 0; max-width: none; }
+  .hike-actions .primary-button { flex: 1; }
+  .route-page .route-planner-toggle { min-height: 44px; padding: 0.6rem; }
+  .route-page:has(.route-planner.is-open) { grid-template-rows: auto minmax(85px, 1fr) minmax(0, 2fr) auto; }
+  .route-page .route-header-subtitle { display: none; }
+}
+@media (max-height: 500px) and (max-width: 720px) {
+  .route-page:has(.route-planner.is-open) { grid-template-rows: auto 0 minmax(0, 1fr) auto; }
+}

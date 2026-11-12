@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,7 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const DEFAULT_MAX_JOIN_GAP_METERS = 1000;
+const DEFAULT_MAX_JOIN_GAP_METERS = 30;
+// A long edge within an OSM way is different from a missing junction between ways.
+const MAX_INTERNAL_EDGE_METERS = 1000;
 const MAX_COORDINATE_LATITUDE = 90;
 const MAX_COORDINATE_LONGITUDE = 180;
 const EPSILON_METERS = 0.001;
@@ -17,7 +19,8 @@ function usage() {
     '',
     'Options:',
     '  --json                 écrit le rapport complet au format JSON',
-    '  --max-gap <mètres>     seuil de rupture entre deux segments (défaut: 1000)',
+    '  --max-gap <mètres>     seuil de raccord manquant entre segments (défaut: 30)',
+    '  --report               actualise docs/route-audit.md',
     '  --help                 affiche cette aide'
   ].join('\n'));
 }
@@ -26,6 +29,7 @@ function parseArguments(argv) {
   let routeDir = path.join(rootDir, 'route-cache');
   let routeDirProvided = false;
   let jsonOutput = false;
+  let report = false;
   let maxJoinGapMeters = DEFAULT_MAX_JOIN_GAP_METERS;
 
   for (let index = 0; index < argv.length; index++) {
@@ -40,6 +44,8 @@ function parseArguments(argv) {
       jsonOutput = true;
       continue;
     }
+
+    if (argument === '--report') { report = true; continue; }
 
     if (argument === '--max-gap') {
       const value = Number(argv[++index]);
@@ -61,7 +67,7 @@ function parseArguments(argv) {
     routeDirProvided = true;
   }
 
-  return { routeDir, jsonOutput, maxJoinGapMeters };
+  return { routeDir, jsonOutput, maxJoinGapMeters, report };
 }
 
 function isFiniteNumber(value) {
@@ -128,7 +134,9 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
 
   let cachedTotalMeters = 0;
   const joinGaps = [];
-  const internalGapThresholdMeters = maxJoinGapMeters;
+  const internalGapThresholdMeters = MAX_INTERNAL_EDGE_METERS;
+  let maxEdgeMeters = 0;
+  let pointCount = 0;
 
   segments.forEach((segment, segmentIndex) => {
     if (!Array.isArray(segment) || segment.length < 2) {
@@ -143,6 +151,7 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
     }
 
     segment.forEach((point, pointIndex) => {
+      pointCount++;
       if (!isCoordinate(point)) {
         addIssue(
           issues,
@@ -162,6 +171,7 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
       }
 
       const gapMeters = haversineMeters(previousPoint, currentPoint);
+      maxEdgeMeters = Math.max(maxEdgeMeters, gapMeters);
       if (gapMeters > internalGapThresholdMeters) {
         addIssue(
           issues,
@@ -223,6 +233,12 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
           { segmentIndex, pointIndex, previousOffset, actual: offset }
         );
       }
+      if (pointIndex > 0 && isCoordinate(segment[pointIndex - 1]) && isCoordinate(segment[pointIndex])) {
+        const minimumDistance = haversineMeters(segment[pointIndex - 1], segment[pointIndex]);
+        if (offset - previousOffset < minimumDistance * 0.99 - 2) {
+          addIssue(issues, 'error', 'offsets.short', `distance cumulée trop courte au segment ${segmentIndex}, point ${pointIndex}`, { segmentIndex, pointIndex });
+        }
+      }
       previousOffset = offset;
     });
 
@@ -258,7 +274,7 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
         'warning',
         'segments.disconnected',
         `rupture de ${formatMeters(gapMeters)} entre les segments ${index - 1} et ${index}`,
-        { segmentIndex: index, gapMeters, boundary: true }
+        { segmentIndex: index, gapMeters, boundary: true, from: previousEnd, to: currentStart }
       );
     }
   }
@@ -266,6 +282,8 @@ function validateSegments(payload, issues, maxJoinGapMeters) {
   return {
     cachedTotalMeters,
     observedMaxJoinGapMeters: Math.max(0, ...joinGaps.map(join => join.meters)),
+    maxEdgeMeters,
+    pointCount,
     joinGaps
   };
 }
@@ -395,6 +413,9 @@ function validatePayload(payload, fileName, maxJoinGapMeters) {
       totalKm: payload.totalKm,
       calculatedTotalKm: totalKmFromOffsets,
       maxJoinGapMeters: geometry.observedMaxJoinGapMeters,
+      maxEdgeMeters: geometry.maxEdgeMeters,
+      points: geometry.pointCount,
+      inferredBridges: payload.repair?.bridges?.length || 0,
       chainCount: payload.chainCount
     }
   };
@@ -541,8 +562,10 @@ function printHumanReport(results, routeDir, maxJoinGapMeters) {
     }
   }
 
-  if (errorRoutes.length === 0) {
+  if (errorRoutes.length === 0 && warningRoutes.length === 0) {
     console.log('\nTous les tracés respectent les contrôles de cohérence.');
+  } else if (errorRoutes.length === 0) {
+    console.log('\nDonnées structurellement valides, mais des raccords restent à vérifier. Ils sont signalés dans l’application et ne sont pas reliés artificiellement.');
   } else {
     console.log('\nLe contrôle échoue: corrigez les randonnées signalées avant de considérer les caches cohérents.');
   }
@@ -551,6 +574,26 @@ function printHumanReport(results, routeDir, maxJoinGapMeters) {
 function main() {
   const options = parseArguments(process.argv.slice(2));
   const results = loadResults(options.routeDir, options.maxJoinGapMeters);
+  if (options.report) {
+    const breaks = results.flatMap(r => r.issues.filter(i => i.boundary).map(i => ({ ref: r.ref, ...i })));
+    const lines = [
+      '# Audit géométrique des randonnées', '',
+      `Audit reproductible : \`node scripts/check-route-coherence.mjs --report\`. ${results.length} randonnées contrôlées.`, '',
+      `Seuil des raccords manquants : ${options.maxJoinGapMeters} m. ${breaks.length} raccords à vérifier sur ${new Set(breaks.map(b => b.ref)).size} randonnées.`, '',
+      'Contrôles : présence des 93 caches et du manifeste, coordonnées, ordre et longueur des distances cumulées, distance minimale entre points, villes dans les limites du tracé, sauts internes de plus de 1 km et raccords entre segments.', '',
+      'Les arêtes internes longues ne prouvent pas à elles seules une rupture : un sentier rectiligne peut avoir peu de points. Inversement, une géométrie continue ne prouve ni le balisage officiel ni l’accessibilité sur le terrain. Les raccords non documentés ne sont pas inventés. Le GR34 contient déjà des liaisons calculées par un routeur dans les données précédentes ; elles ne sont pas une validation du GR officiel.', '',
+      'L’application affiche les interruptions sur la carte, avertit dans le résumé de l’étape et suspend le calcul des kilomètres restants si une interruption se trouve avant la destination.', '',
+      '| GR | km en cache | Points | Plus grande arête (m) | Plus grand raccord (m) | Raccords à vérifier | Liaisons calculées préexistantes | Résultat |',
+      '| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |',
+      ...results.map(r => `| ${r.ref} | ${r.stats.totalKm} | ${r.stats.points} | ${Math.round(r.stats.maxEdgeMeters || 0)} | ${Math.round(r.stats.maxJoinGapMeters || 0)} | ${r.issues.filter(i => i.boundary).length} | ${r.stats.inferredBridges || 0} | ${r.status === 'ok' ? 'Contrôles passés' : r.status === 'warning' ? 'À vérifier' : 'Erreur'} |`), '',
+      '## Raccords à vérifier', '',
+      '| GR | Segment d’arrivée | Écart (m) | Fin du segment précédent (lat, lon) | Début suivant (lat, lon) |',
+      '| --- | ---: | ---: | --- | --- |',
+      ...breaks.map(b => `| ${b.ref} | ${b.segmentIndex} | ${Math.round(b.gapMeters)} | ${b.from.join(', ')} | ${b.to.join(', ')} |`), ''
+    ];
+    mkdirSync(path.join(rootDir, 'docs'), { recursive: true });
+    writeFileSync(path.join(rootDir, 'docs/route-audit.md'), lines.join('\n'));
+  }
   if (options.jsonOutput) {
     console.log(JSON.stringify({
       routeDir: options.routeDir,

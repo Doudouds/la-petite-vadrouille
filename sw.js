@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260919-layout-1';
+const CACHE_VERSION = '20261112-hiking-1';
 const SHELL_CACHE = `gr-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `gr-data-${CACHE_VERSION}`;
 const CDN_CACHE = `gr-cdn-${CACHE_VERSION}`;
@@ -8,6 +8,11 @@ const APP_SHELL = [
   '/gr.html',
   '/style.css',
   '/index.js',
+  '/route-math.js',
+  '/location.js',
+  '/route-hike.js',
+  '/pwa.js',
+  '/privacy.html',
   '/data.js',
   '/gr-metadata.js',
   '/region-geometry.js',
@@ -62,13 +67,13 @@ async function putInCache(cacheName, request, response) {
 async function readFromCache(cacheName, request) {
   const cache = await caches.open(cacheName);
   const cacheKey = getCacheKey(request);
-  return cache.match(cacheKey) || cache.match(request, { ignoreSearch: true });
+  return (await cache.match(cacheKey)) || cache.match(request, { ignoreSearch: true });
 }
 
 async function matchShellPath(pathname) {
   const cache = await caches.open(SHELL_CACHE);
   const absoluteKey = new URL(pathname, self.location.origin).href;
-  return cache.match(absoluteKey) || cache.match(pathname);
+  return (await cache.match(absoluteKey)) || cache.match(pathname);
 }
 
 async function staleWhileRevalidate(request, cacheName) {

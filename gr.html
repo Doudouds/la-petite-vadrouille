@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=20260919" />
+  <link rel="stylesheet" href="style.css?v=20261112" />
 </head>
 <body class="route-page">
   <header class="site-header site-header-route">
@@ -41,7 +41,20 @@
   </header>
 
   <div id="status">Chargement du tracé...</div>
-  <aside id="route-planner" class="route-planner is-collapsed" aria-live="polite">
+  <aside id="route-planner" class="route-planner is-collapsed">
+    <div id="map-pick-prompt" class="route-integrity-warning" hidden><span id="map-pick-text" role="status"></span><button type="button" id="cancel-map-pick" class="text-button">Annuler</button></div>
+    <div id="hike-panel" class="hike-panel">
+      <div class="hike-actions">
+        <button type="button" id="hike-locate" class="primary-button">◎ Me situer</button>
+        <button type="button" id="hike-center" class="text-button" hidden>Recentrer</button>
+        <button type="button" id="hike-stop" class="text-button" hidden>Arrêter le GPS</button>
+      </div>
+      <p id="hike-message" class="hike-message" role="status" hidden></p>
+      <div id="hike-progress" class="hike-progress" hidden>
+        <div><strong id="hike-remaining">—</strong><span id="hike-destination"></span></div>
+        <button type="button" id="hike-target" class="text-button">Changer l’arrivée</button>
+      </div>
+    </div>
     <button type="button" id="route-planner-toggle" class="route-planner-toggle" aria-expanded="false" aria-controls="route-planner-card" title="Ouvrir le planificateur">
       <span class="route-planner-toggle-icon" aria-hidden="true">✦</span>
       <span class="route-planner-toggle-label">Préparer une étape</span>
@@ -55,11 +68,18 @@
         </div>
         <button type="button" id="route-planner-close" class="route-planner-close-button">Revenir à la carte</button>
       </div>
-      <p class="route-planner-intro">Choisissez votre départ et votre arrivée par ville ou directement sur le tracé.</p>
+      <nav class="planner-steps" aria-label="Préparation de l’étape">
+        <button type="button" data-step="start" aria-current="step"><b>1 · Départ</b><span id="step-start-label">À choisir</span></button>
+        <button type="button" data-step="end"><b>2 · Arrivée</b><span id="step-end-label">À choisir</span></button>
+        <button type="button" data-step="summary"><b>3 · Résumé</b><span>Votre étape</span></button>
+      </nav>
+      <p id="planner-instruction" class="route-planner-intro">D’où souhaitez-vous partir ?</p>
 
+      <section class="planner-step" data-panel="start">
       <div class="route-planner-field">
-        <label for="city-start">Ville de départ</label>
-        <input id="city-start" type="search" autocomplete="off" placeholder="Ex. Versailles" />
+        <button type="button" id="planner-location" class="location-choice">◎ Partir de ma position</button>
+        <label for="city-start">Rechercher un lieu de départ</label>
+        <input id="city-start" type="search" autocomplete="off" placeholder="Nom d’une ville sur le tracé" aria-controls="city-start-list" />
         <div class="route-planner-actions">
           <button type="button" class="route-pick-button" data-role="start" data-action="pick-map">Choisir sur la carte</button>
           <button type="button" class="route-clear-button" data-role="start" data-action="clear-selection">Effacer</button>
@@ -67,12 +87,12 @@
         <div id="route-picker-start-hint" class="route-picker-hint"></div>
         <div id="city-start-list" class="city-choice-list"></div>
       </div>
+      </section>
 
-      <div class="route-planner-divider" aria-hidden="true"></div>
-
+      <section class="planner-step" data-panel="end" hidden>
       <div class="route-planner-field">
-        <label for="city-end">Ville d'arrivée</label>
-        <input id="city-end" type="search" autocomplete="off" placeholder="Ex. Rambouillet" />
+        <label for="city-end">Rechercher un lieu d’arrivée</label>
+        <input id="city-end" type="search" autocomplete="off" placeholder="Votre prochaine destination" aria-controls="city-end-list" />
         <div class="route-planner-actions">
           <button type="button" class="route-pick-button" data-role="end" data-action="pick-map">Choisir sur la carte</button>
           <button type="button" class="route-clear-button" data-role="end" data-action="clear-selection">Effacer</button>
@@ -80,9 +100,9 @@
         <div id="route-picker-end-hint" class="route-picker-hint"></div>
         <div id="city-end-list" class="city-choice-list"></div>
       </div>
+      </section>
 
-      <div class="route-planner-divider" aria-hidden="true"></div>
-
+      <section class="planner-step" data-panel="summary" hidden>
       <div class="route-planner-field route-planner-days">
         <label for="trip-days">Nombre de jours prévu (optionnel)</label>
         <input id="trip-days" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex. 4" />
@@ -90,6 +110,14 @@
 
       <div id="route-planner-summary" class="route-planner-summary">
         Chargez un tracé pour préparer votre étape.
+      </div>
+      <button type="button" id="hike-start" class="primary-button">Démarrer la randonnée</button>
+      <p class="planner-footnote">La distance restante suit le tracé jusqu’à votre arrivée. Le GPS fonctionne lorsque la carte est ouverte.</p>
+      </section>
+      <p id="planner-location-message" role="status" hidden></p>
+      <div class="planner-navigation">
+        <button type="button" id="planner-previous" class="text-button" hidden>Précédent</button>
+        <button type="button" id="planner-next" class="primary-button" disabled>Choisir l’arrivée →</button>
       </div>
     </div>
   </aside>
@@ -101,7 +129,10 @@
   <script src="gr-metadata.js?v=20260501"></script>
   <script src="gr-route-cache-manifest.js?v=20260501"></script>
   <script src="stations-sncf.js?v=20260501"></script>
-  <script src="pwa.js?v=20260521"></script>
+  <script src="route-math.js?v=20261112"></script>
+  <script src="location.js?v=20261112"></script>
+  <script src="route-hike.js?v=20261112"></script>
+  <script src="pwa.js?v=20261112"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const ref = params.get('ref') || 'GR1';
@@ -202,6 +233,7 @@
       days: '',
       mapPickRole: null,
       plannerOpen: false,
+      step: 'start',
       routeGeometry: null,
       elevationProfile: null,
       elevationStatus: 'idle',
@@ -224,7 +256,7 @@
       town: 1,
       village: 2
     };
-    const DEFAULT_CITY_SUGGESTION_COUNT = 10;
+    const DEFAULT_CITY_SUGGESTION_COUNT = 5;
     const STAGE_COLORS = ['#c62828', '#d84315', '#ef6c00', '#f4511e', '#b71c1c', '#e64a19'];
     const ELEVATION_CACHE_VERSION = '20260521';
     const ELEVATION_API_URL = 'https://api.open-meteo.com/v1/elevation';
@@ -248,7 +280,50 @@
       routePlannerToggle.setAttribute('title', plannerState.plannerOpen ? 'Revenir à la carte' : 'Ouvrir le planificateur');
       routePlannerToggle.querySelector('.visually-hidden').textContent = plannerState.plannerOpen ? 'Revenir à la carte' : 'Ouvrir le planificateur';
       map.getContainer().classList.toggle('route-planner-active', plannerState.plannerOpen);
+      if (isOpen && plannerState.routeGeometry && plannerState.elevationStatus === 'idle') {
+        void ensureElevationProfile(plannerState.routeGeometry);
+      }
     }
+
+    function setPlannerStep(step, focus = true) {
+      plannerState.step = step;
+      for (const panel of routePlanner.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== step;
+      for (const button of routePlanner.querySelectorAll('[data-step]')) {
+        if (button.dataset.step === step) button.setAttribute('aria-current', 'step');
+        else button.removeAttribute('aria-current');
+      }
+      document.getElementById('planner-instruction').textContent = {
+        start: 'D’où souhaitez-vous partir ?', end: 'Où souhaitez-vous arriver ?', summary: 'Votre étape en un coup d’œil.'
+      }[step];
+      document.getElementById('planner-previous').hidden = step === 'start';
+      const next = document.getElementById('planner-next');
+      next.hidden = step === 'summary';
+      next.textContent = step === 'start' ? 'Choisir l’arrivée →' : 'Voir mon étape →';
+      next.disabled = !getSelectedPoint(step === 'start' ? 'start' : 'end');
+      document.getElementById('step-start-label').textContent = getSelectedPoint('start')?.name || 'À choisir';
+      document.getElementById('step-end-label').textContent = getSelectedPoint('end')?.name || 'À choisir';
+      document.getElementById('hike-start').disabled = !getSelectedPoint('start') || !getSelectedPoint('end')
+        || Math.abs(getSelectedPoint('start').meters - getSelectedPoint('end').meters) < 1;
+      if (focus) {
+        routePlanner.querySelector('.route-planner-card').scrollTop = 0;
+        routePlanner.querySelector(`[data-step="${step}"]`).focus({ preventScroll: true });
+      }
+    }
+
+    function finishSelection(role) {
+      renderPlanner();
+      setPlannerStep(role === 'start' ? 'end' : 'summary');
+      updateRoutePlannerVisibility(true);
+    }
+
+    window.addEventListener('app-back', event => {
+      if (plannerState.mapPickRole || plannerState.plannerOpen) {
+        event.preventDefault();
+        plannerState.mapPickRole = null;
+        updateRoutePlannerVisibility(false);
+        renderPlanner();
+      }
+    });
 
     syncRoutePageLayout();
     // Includes panel toggles, wrapped titles, installation prompts and keyboard resizing.
@@ -650,21 +725,7 @@ out geom;
     }
 
     function buildRouteGeometry(segments, segmentPointMeters = null) {
-      let totalMeters = 0;
-      const segmentInfos = segments.map((latlngs, segmentIndex) => {
-        const { pointOffsets, lengthMeters } = buildSegmentRecord(latlngs, segmentPointMeters?.[segmentIndex]);
-        const segmentInfo = {
-          latlngs,
-          pointOffsets,
-          lengthMeters,
-          startMeters: totalMeters,
-          endMeters: totalMeters + lengthMeters
-        };
-        totalMeters += lengthMeters;
-        return segmentInfo;
-      });
-
-      return { segments: segmentInfos, totalMeters };
+      return RouteMath.buildGeometry(segments, segmentPointMeters);
     }
 
     function getElevationProfileCacheKey(routeGeometry) {
@@ -1022,51 +1083,7 @@ out geom;
     }
 
     function nearestRoutePosition(point, routeGeometry) {
-      const bestMatch = {
-        distanceMeters: Number.POSITIVE_INFINITY,
-        meters: 0,
-        latlng: null
-      };
-
-      if (!routeGeometry) {
-        return bestMatch;
-      }
-
-      routeGeometry.segments.forEach(segmentInfo => {
-        for (let index = 1; index < segmentInfo.latlngs.length; index++) {
-          const start = segmentInfo.latlngs[index - 1];
-          const end = segmentInfo.latlngs[index];
-          const segmentLength = segmentInfo.pointOffsets[index] - segmentInfo.pointOffsets[index - 1];
-          if (segmentLength <= 0) {
-            continue;
-          }
-
-          const referenceLat = (point[0] + start[0] + end[0]) / 3;
-          const [px, py] = pointToXY(point, referenceLat);
-          const [ax, ay] = pointToXY(start, referenceLat);
-          const [bx, by] = pointToXY(end, referenceLat);
-          const dx = bx - ax;
-          const dy = by - ay;
-          const lengthSq = dx * dx + dy * dy;
-          if (lengthSq <= 0) {
-            continue;
-          }
-
-          const ratio = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
-          const projection = interpolateLatLng(start, end, ratio);
-          const [projX, projY] = pointToXY(projection, referenceLat);
-          const distanceMeters = Math.hypot(px - projX, py - projY);
-          const meters = segmentInfo.startMeters + segmentInfo.pointOffsets[index - 1] + segmentLength * ratio;
-
-          if (distanceMeters < bestMatch.distanceMeters) {
-            bestMatch.distanceMeters = distanceMeters;
-            bestMatch.meters = meters;
-            bestMatch.latlng = projection;
-          }
-        }
-      });
-
-      return bestMatch;
+      return RouteMath.nearest(point, routeGeometry);
     }
 
     function buildRouteSlice(routeGeometry, startMeters, endMeters) {
@@ -1149,7 +1166,7 @@ out geom;
       if (plannerState.routeContextPopup) {
         map.closePopup(plannerState.routeContextPopup);
       }
-      renderPlanner();
+      finishSelection(role);
       return true;
     }
 
@@ -1334,6 +1351,9 @@ out geom;
         return;
       }
 
+      const overlayKey = [plannerState.startSelection?.meters, plannerState.endSelection?.meters, getTripDays()].join(':');
+      if (plannerState.overlayKey === overlayKey) return;
+      plannerState.overlayKey = overlayKey;
       plannerState.routeHighlightLayer.clearLayers();
       plannerState.routeMarkerLayer.clearLayers();
 
@@ -1480,7 +1500,7 @@ out geom;
           ? `<p class="city-choice-more">${filtered.length - visible.length} autre(s) ville(s) masquée(s). Continuez à taper pour affiner.</p>`
           : '')
         : (plannerState.cities.length > visible.length
-          ? `<p class="city-choice-more">${plannerState.cities.length} villes en cache. Voici 10 repères du trajet ; tapez pour filtrer toute la liste.</p>`
+          ? `<p class="city-choice-more">${plannerState.cities.length} villes en cache. Voici quelques repères du trajet ; tapez pour filtrer toute la liste.</p>`
           : '');
 
       container.innerHTML = itemsHtml + extraHtml;
@@ -1549,6 +1569,8 @@ out geom;
         : '';
 
       plannerSummary.innerHTML = details.map(line => `<p>${line}</p>`).join('') + stageHtml;
+      const gaps = RouteMath.gapsBetween(plannerState.routeGeometry, startPoint.meters, endPoint.meters);
+      if (gaps.length) plannerSummary.insertAdjacentHTML('beforeend', `<p class="route-integrity-warning">${gaps.length} interruption(s) du tracé sur cette étape. La distance exclut les passages manquants ; vérifiez la liaison sur le terrain avant de partir.</p>`);
     }
 
     function renderPlanner() {
@@ -1575,9 +1597,13 @@ out geom;
         ? 'Cliquez sur le tracé ou sur un repère kilométrique pour définir l\'arrivée.'
         : (endSelection ? `${endSelection.source === 'city' ? 'Ville sélectionnée' : 'Point sélectionné sur la carte'} : ${endSelection.name} · km ${formatKm(endSelection.km)}` : '');
       map.getContainer().classList.toggle('route-pick-active', Boolean(plannerState.mapPickRole));
+      document.getElementById('map-pick-prompt').hidden = !plannerState.mapPickRole;
+      document.getElementById('map-pick-text').textContent = plannerState.mapPickRole === 'start' ? 'Touchez le sentier pour placer le départ.' : 'Touchez le sentier pour placer l’arrivée.';
       renderPlannerSummary();
       updateSelectionOverlay();
       plannerState.refreshRouteStatus?.();
+      setPlannerStep(plannerState.step, false);
+      window.dispatchEvent(new Event('route-selection-change'));
     }
 
     function updatePlannerCities(cities) {
@@ -1901,9 +1927,17 @@ out geom;
       plannerState.elevationStatus = 'idle';
       plannerState.elevationError = '';
       plannerState.routeHighlightLayer = routeHighlightLayer;
+      plannerState.overlayKey = null;
       plannerState.routeMarkerLayer = routeMarkerLayer;
       plannerState.routeContextPopup = routeContextPopup;
-      void ensureElevationProfile(plannerState.routeGeometry);
+      window.dispatchEvent(new Event('route-ready'));
+      const gaps = plannerState.routeGeometry.gaps;
+      for (const gap of gaps) {
+        for (const point of [gap.from, gap.to]) {
+          L.circleMarker(point, { radius: 6, color: '#a45c08', fillColor: '#fff1ca', fillOpacity: 1, weight: 2, renderer: mapRenderer })
+            .bindPopup(`Interruption du tracé : ${Math.round(gap.distanceMeters)} m entre les deux extrémités. Liaison à vérifier.`).addTo(group);
+        }
+      }
 
       // Affiche les segments (polylines)
       L.polyline(segments, {
@@ -2283,6 +2317,12 @@ out geom;
           return;
         }
 
+        const metersPerPixel = 156543.03392 * Math.cos(event.latlng.lat * Math.PI / 180) / 2 ** map.getZoom();
+        if (snapped.distanceMeters > Math.max(80, Math.min(1000, metersPerPixel * 24))) {
+          document.getElementById('map-pick-text').textContent = 'Ce point est trop éloigné du sentier. Zoomez et touchez le tracé.';
+          return;
+        }
+
         applyMapPickSelection(snapped.meters, snapped.latlng);
       };
       map.on('click', plannerState.mapPickHandler);
@@ -2310,7 +2350,7 @@ out geom;
     }
 
     function readStoredRouteCache() {
-      if (!routeCacheEntry || typeof localStorage === 'undefined') {
+      if (VadrouilleLocation.native || !routeCacheEntry || typeof localStorage === 'undefined') {
         return null;
       }
 
@@ -2335,7 +2375,7 @@ out geom;
     }
 
     function storeRouteCache(data) {
-      if (typeof localStorage === 'undefined') {
+      if (VadrouilleLocation.native || typeof localStorage === 'undefined') {
         return;
       }
 
@@ -2415,6 +2455,7 @@ out geom;
         if (action === 'pick-map') {
           plannerState.mapPickRole = plannerState.mapPickRole === role ? null : role;
           renderPlanner();
+          updateRoutePlannerVisibility(false);
           return;
         }
 
@@ -2448,8 +2489,24 @@ out geom;
       }
 
       plannerState.mapPickRole = null;
+      finishSelection(role);
+    });
 
-      renderPlanner();
+    document.getElementById('cancel-map-pick').addEventListener('click', () => {
+      plannerState.mapPickRole = null; renderPlanner(); updateRoutePlannerVisibility(true);
+    });
+    routePlanner.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click', () => setPlannerStep(button.dataset.step)));
+    document.getElementById('planner-next').addEventListener('click', () => setPlannerStep(plannerState.step === 'start' ? 'end' : 'summary'));
+    document.getElementById('planner-previous').addEventListener('click', () => setPlannerStep(plannerState.step === 'summary' ? 'end' : 'start'));
+    window.createHikeController({
+      map, renderer: mapRenderer, state: plannerState,
+      chooseStart(snapped) {
+        setSelection('start', buildSelectionFromMap('start', snapped.meters, snapped.latlng, 'Ma position'));
+        finishSelection('start');
+      },
+      openArrival() { setPlannerStep('end'); updateRoutePlannerVisibility(true); },
+      closePlanner() { updateRoutePlannerVisibility(false); },
+      slice: buildRouteSlice
     });
 
     resolveRouteData()

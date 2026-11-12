@@ -1,4 +1,16 @@
 (function () {
+  // Capacitor handles Android's button and predictive back gesture through this plugin.
+  if (window.Capacitor?.isNativePlatform()) {
+    const app = window.Capacitor.Plugins?.App || window.Capacitor.registerPlugin?.('App');
+    Promise.resolve(app.addListener('backButton', () => {
+      if (!window.dispatchEvent(new Event('app-back', { cancelable: true }))) return;
+      if (!/\/(?:index\.html)?$/.test(location.pathname)) location.replace('index.html');
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    })).catch(error => console.warn('Android back listener unavailable', error));
+    Promise.resolve(app.addListener('appStateChange', ({ isActive }) => {
+      window.dispatchEvent(new CustomEvent('app-visibility', { detail: { isActive } }));
+    })).catch(error => console.warn('Android lifecycle listener unavailable', error));
+  }
   const installButtons = Array.from(document.querySelectorAll('[data-action="install-app"]'));
   const displayModeMedia = typeof window.matchMedia === 'function'
     ? window.matchMedia('(display-mode: standalone)')

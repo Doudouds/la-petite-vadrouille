@@ -14,7 +14,7 @@
   <link rel="icon" href="logo.png" />
   <link rel="apple-touch-icon" href="logo.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css?v=20260919" />
+  <link rel="stylesheet" href="style.css?v=20261112" />
 </head>
 <body>
   <header class="site-header site-header-home">
@@ -38,21 +38,31 @@
   </header>
 
   <main class="catalog-layout">
+      <section class="nearby-panel" aria-labelledby="nearby-title">
+        <div class="nearby-heading">
+          <div><p class="section-kicker">L’envie de partir, juste ici</p><h2 id="nearby-title">Autour de moi</h2></div>
+          <button type="button" class="primary-button" id="locate-nearby">Me localiser</button>
+        </div>
+        <p id="nearby-status" role="status">Trouvez les sentiers les plus proches de votre position.</p>
+        <div id="nearby-results" class="nearby-results"></div>
+        <button type="button" class="text-button" id="clear-location" hidden>Effacer ma position</button>
+      </section>
+
     <aside class="region-panel">
-      <div class="region-card">
-        <div class="region-card-header">
+      <details class="region-card" id="region-filter">
+        <summary class="region-card-header">
           <div>
             <p class="section-kicker">Affinez votre recherche</p>
             <h2>Explorer par région</h2>
             <p>Choisissez une région pour afficher les sentiers disponibles autour de vous.</p>
           </div>
           <button type="button" class="region-reset" id="clear-region">Tout voir</button>
-        </div>
+        </summary>
         <div class="region-map-wrap">
           <svg id="region-map" class="region-map" viewBox="0 0 360 500" role="img" aria-label="Carte colorée des régions françaises métropolitaines"></svg>
         </div>
         <div class="region-status" id="region-status">Cliquez sur une région pour filtrer la liste.</div>
-      </div>
+      </details>
     </aside>
 
     <section class="list-panel">
@@ -100,7 +110,9 @@
   <script src="region-geometry.js?v=20260501"></script>
   <script src="gr-region-cache.js?v=20260501"></script>
   <script src="gr-route-cache-manifest.js?v=20260501"></script>
-  <script src="index.js?v=20260501"></script>
-  <script src="pwa.js?v=20260521"></script>
+  <script src="route-math.js?v=20261112"></script>
+  <script src="location.js?v=20261112"></script>
+  <script src="index.js?v=20261112"></script>
+  <script src="pwa.js?v=20261112"></script>
 </body>
 </html>

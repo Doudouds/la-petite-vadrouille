@@ -9,6 +9,7 @@
   const clearSearchButton = document.getElementById('clear-search');
   const routeCount = document.getElementById('route-count');
   const regionMap = document.getElementById('region-map');
+  document.getElementById('region-filter').open = window.matchMedia('(min-width: 981px)').matches;
 
   const REGION_DEFS = window.FRANCE_REGION_DEFS || [];
   const REGION_CACHE = window.GR_REGION_CACHE?.regions || {};
@@ -60,6 +61,62 @@
   const baseRoutes = Array.from(
     new Map(getRouteSourceList().map(gr => [normalizeRef(gr.ref), enrichRoute(gr)])).values()
   );
+
+  const nearbyButton = document.getElementById('locate-nearby');
+  const nearbyStatus = document.getElementById('nearby-status');
+  const nearbyResults = document.getElementById('nearby-results');
+  const clearLocation = document.getElementById('clear-location');
+  let nearbyIndex = null;
+  let locationRequest = 0;
+  nearbyButton.addEventListener('click', async () => {
+    const request = ++locationRequest;
+    nearbyButton.disabled = true;
+    nearbyStatus.textContent = 'Recherche de votre position…';
+    nearbyResults.replaceChildren();
+    clearLocation.hidden = false;
+    try {
+      const position = await VadrouilleLocation.current();
+      if (request !== locationRequest) return;
+      if (!nearbyIndex) {
+        const response = await fetch('nearby-routes.json?v=20261112');
+        if (!response.ok) throw new Error('Les sentiers proches sont indisponibles. Réessayez lorsque la connexion sera rétablie.');
+        nearbyIndex = await response.json();
+      }
+      if (request !== locationRequest) return;
+      const point = [position.coords.latitude, position.coords.longitude];
+      const routes = baseRoutes.map(route => {
+        const segments = nearbyIndex.routes[route.refKey];
+        return { route, distance: segments ? RouteMath.nearest(point, RouteMath.buildGeometry(segments)).distanceMeters : Infinity };
+      }).filter(item => Number.isFinite(item.distance)).sort((a, b) => a.distance - b.distance).slice(0, 3);
+      nearbyStatus.textContent = routes.length
+        ? `Les ${routes.length} sentiers les plus proches · distances approximatives à vol d’oiseau jusqu’au tracé.${position.coords.accuracy > 100 ? ' Position approximative : le classement peut varier.' : ''}`
+        : 'Aucun sentier disponible à proximité.';
+      for (const { route, distance } of routes) {
+        const card = document.createElement('a');
+        card.className = 'nearby-card';
+        card.href = `gr.html?ref=${encodeURIComponent(route.refKey)}`;
+        const badge = document.createElement('strong'); badge.textContent = route.ref;
+        const name = document.createElement('span'); name.textContent = route.displayName;
+        const proximity = document.createElement('span'); proximity.className = 'nearby-distance';
+        proximity.textContent = distance < 200 ? 'À moins de 200 m du tracé' : `À environ ${formatRouteDistance(distance / 1000)} du tracé`;
+        card.append(badge, name, proximity);
+        nearbyResults.append(card);
+      }
+      nearbyButton.textContent = 'Actualiser';
+    } catch (error) {
+      if (request === locationRequest) nearbyStatus.textContent = VadrouilleLocation.errorMessage(error);
+    } finally {
+      if (request === locationRequest) nearbyButton.disabled = false;
+    }
+  });
+  clearLocation.addEventListener('click', () => {
+    locationRequest++;
+    nearbyResults.replaceChildren();
+    nearbyButton.disabled = false;
+    nearbyButton.textContent = 'Me localiser';
+    nearbyStatus.textContent = 'Trouvez les sentiers les plus proches de votre position.';
+    clearLocation.hidden = true;
+  });
 
   function formatRouteDistance(value) {
     const distance = Number(value);
@@ -228,7 +285,9 @@
     }
   });
 
-  clearRegionButton.addEventListener('click', () => {
+  clearRegionButton.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
     state.selectedRegionCode = null;
     state.regionRefs = null;
     setRegionStatus('Cliquez sur une région pour filtrer la liste depuis le cache local.');

@@ -1,5 +1,6 @@
 node_modules/
 mobile-web/
+test-artifacts/
 
 android/.gradle/
 android/build/

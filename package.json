@@ -5,9 +5,12 @@
   "description": "Packaging Android et préparation Play Store pour l'application La petite vadrouille.",
   "packageManager": "npm@10.9.3",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "test:ui": "node scripts/check-layout.cjs && node scripts/check-interactions.cjs",
+    "routes:index": "node scripts/build-nearby-index.cjs",
     "routes:check": "node ./scripts/check-route-coherence.mjs",
     "routes:repair": "node ./scripts/repair-route-breaks.mjs",
-    "mobile:prepare": "node ./scripts/prepare-mobile-web.mjs",
+    "mobile:prepare": "node ./scripts/build-nearby-index.cjs && node ./scripts/prepare-mobile-web.mjs",
     "android:add": "npm run mobile:prepare && npx cap add android",
     "android:assets": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-android-branding.ps1",
     "android:sync": "npm run android:assets && npm run mobile:prepare && npx cap sync android",
@@ -18,12 +21,15 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/geolocation": "^8.2.4",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.4"
+    "@capacitor/cli": "^8.3.4",
+    "@playwright/test": "^1.65.0"
   }
 }

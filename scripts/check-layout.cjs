@@ -20,7 +20,7 @@ const root = path.resolve(__dirname, '..');
     } catch { await route.fulfill({ status: 404, body: '' }); }
   });
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => { errors.push(error.message); console.error(error); });
   async function check(selectors, label) {
     const result = await page.evaluate(selectors => {
       const boxes = selectors.map(selector => {
@@ -44,7 +44,7 @@ const root = path.resolve(__dirname, '..');
     for (const [width, height] of [[320, 568], [390, 844], [720, 480], [844, 390], [1024, 768], [1440, 900]]) {
       await page.setViewportSize({ width, height });
       await page.goto('http://layout.test/mobile-web/index.html');
-      await check(['.region-panel', '.list-panel', '.site-header'], `home ${width}`);
+      await check(['.nearby-panel', '.region-panel', '.list-panel', '.site-header'], `home ${width}`);
       await page.goto('http://layout.test/mobile-web/gr.html?ref=GR1');
       await page.waitForFunction(() => document.querySelector('#status').textContent.includes('km'));
       const selectors = ['.site-header-route', '#map', '#status', '#route-planner'];
