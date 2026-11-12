@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=20261112-access-1" />
+  <link rel="stylesheet" href="style.css?v=20261112-planner-1" />
 </head>
 <body class="route-page">
   <header class="site-header site-header-route">
@@ -86,6 +86,7 @@
       <section class="planner-step" data-panel="start">
       <div class="route-planner-field">
         <button type="button" id="planner-location" class="location-choice">◎ Partir de ma position</button>
+        <p id="planner-location-message" role="status" hidden></p>
         <label for="city-start">Rechercher un lieu de départ</label>
         <input id="city-start" type="search" autocomplete="off" placeholder="Nom d’une ville sur le tracé" aria-controls="city-start-list" />
         <div class="route-planner-actions">
@@ -122,7 +123,6 @@
       <button type="button" id="hike-start" class="primary-button">Démarrer la randonnée</button>
       <p class="planner-footnote">La distance restante suit le tracé jusqu’à votre arrivée. Le GPS fonctionne lorsque la carte est ouverte.</p>
       </section>
-      <p id="planner-location-message" role="status" hidden></p>
       <div class="planner-navigation">
         <button type="button" id="planner-previous" class="text-button" hidden>Précédent</button>
         <button type="button" id="planner-next" class="primary-button" disabled>Choisir l’arrivée →</button>
@@ -130,6 +130,7 @@
     </div>
   </aside>
   <div id="map"></div>
+  <div id="planner-location-toast" class="planner-location-toast" role="status"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -140,7 +141,7 @@
   <script src="route-math.js?v=20261112"></script>
   <script src="location.js?v=20261112"></script>
   <script src="route-access.js?v=20261112-access-1"></script>
-  <script src="route-hike.js?v=20261112-access-1"></script>
+  <script src="route-hike.js?v=20261112-planner-1"></script>
   <script src="pwa.js?v=20261112"></script>
   <script>
     const params = new URLSearchParams(location.search);
@@ -220,6 +221,7 @@
 
     const status = document.getElementById('status');
     const routePlanner = document.getElementById('route-planner');
+    const routePlannerCard = document.getElementById('route-planner-card');
     const routePlannerToggle = document.getElementById('route-planner-toggle');
     const routePlannerClose = document.getElementById('route-planner-close');
     const pageHeader = document.querySelector('header');
@@ -298,8 +300,14 @@
       plannerState.step = step;
       for (const panel of routePlanner.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== step;
       for (const button of routePlanner.querySelectorAll('[data-step]')) {
-        if (button.dataset.step === step) button.setAttribute('aria-current', 'step');
+        const role = button.dataset.step;
+        if (role === step) button.setAttribute('aria-current', 'step');
         else button.removeAttribute('aria-current');
+        if (role !== 'summary') {
+          const selection = getSelectedPoint(role);
+          button.classList.toggle('is-selected', Boolean(selection));
+          document.getElementById(`step-${role}-label`).textContent = selection?.name || 'À choisir';
+        }
       }
       document.getElementById('planner-instruction').textContent = {
         start: 'D’où souhaitez-vous partir ?', end: 'Où souhaitez-vous arriver ?', summary: 'Votre étape en un coup d’œil.'
@@ -309,20 +317,18 @@
       next.hidden = step === 'summary';
       next.textContent = step === 'start' ? 'Choisir l’arrivée →' : 'Voir mon étape →';
       next.disabled = !getSelectedPoint(step === 'start' ? 'start' : 'end');
-      document.getElementById('step-start-label').textContent = getSelectedPoint('start')?.name || 'À choisir';
-      document.getElementById('step-end-label').textContent = getSelectedPoint('end')?.name || 'À choisir';
       document.getElementById('hike-start').disabled = !getSelectedPoint('start') || !getSelectedPoint('end')
         || Math.abs(getSelectedPoint('start').meters - getSelectedPoint('end').meters) < 1;
       if (focus) {
-        routePlanner.querySelector('.route-planner-card').scrollTop = 0;
+        routePlannerCard.scrollTop = 0;
         routePlanner.querySelector(`[data-step="${step}"]`).focus({ preventScroll: true });
       }
     }
 
     function finishSelection(role) {
       renderPlanner();
-      setPlannerStep(role === 'start' ? 'end' : 'summary');
       updateRoutePlannerVisibility(true);
+      setPlannerStep(role === 'start' ? 'end' : 'summary');
     }
 
     window.addEventListener('app-back', event => {
@@ -2452,8 +2458,50 @@ out geom;
       updateRoutePlannerVisibility(!plannerState.plannerOpen);
     });
 
-    routePlannerClose?.addEventListener('click', () => {
+    function returnToMap() {
       updateRoutePlannerVisibility(false);
+      routePlannerToggle.focus({ preventScroll: true });
+    }
+
+    routePlannerClose.addEventListener('click', returnToMap);
+
+    function plannerAtBottom() {
+      return routePlannerCard.scrollTop + routePlannerCard.clientHeight >= routePlannerCard.scrollHeight - 1;
+    }
+
+    let lastPlannerWheel = -Infinity;
+    routePlannerCard.addEventListener('wheel', event => {
+      if (event.ctrlKey || event.deltaY === 0 || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const startsScroll = event.timeStamp - lastPlannerWheel > 200;
+      lastPlannerWheel = event.timeStamp;
+      // Let a single scroll sequence reach the controls without dismissing the planner.
+      if (startsScroll && event.deltaY > 0 && plannerAtBottom()) {
+        event.preventDefault();
+        returnToMap();
+      }
+    }, { passive: false });
+
+    let plannerTouchStart;
+    routePlannerCard.addEventListener('touchstart', event => {
+      const [touch] = event.touches;
+      plannerTouchStart = event.touches.length === 1 ? {
+        x: touch.clientX,
+        y: touch.clientY,
+        atTop: routePlannerCard.scrollTop <= 0,
+        atBottom: plannerAtBottom()
+      } : null;
+    }, { passive: true });
+
+    routePlannerCard.addEventListener('touchcancel', () => { plannerTouchStart = null; });
+    routePlannerCard.addEventListener('touchend', event => {
+      const start = plannerTouchStart;
+      plannerTouchStart = null;
+      if (!start) return;
+      const [touch] = event.changedTouches;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (Math.abs(dy) <= Math.abs(dx)) return;
+      if ((start.atTop && dy >= 60) || (start.atBottom && dy <= -60)) returnToMap();
     });
 
     routePlanner.addEventListener('click', event => {

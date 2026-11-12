@@ -15,7 +15,7 @@ const fixture = {
 
 (async () => {
   const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 'msedge', headless: true });
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
   const errors = [];
   let elevations = 0, nearbyFetches = 0;
   let accessCalls = 0, routingMode = 'success', releaseRoute, lastAccessUrl;
@@ -94,9 +94,11 @@ const fixture = {
     await page.fill('#city-start', 'départ');
     await page.click('#city-start-list .city-choice');
     await expect(page.locator('[data-panel="end"]')).toBeVisible();
+    await expect(page.locator('.is-selected #step-start-label')).toHaveText('Départ test');
     await page.fill('#city-end', 'arrivée');
     await page.click('#city-end-list .city-choice');
     await expect(page.locator('[data-panel="summary"]')).toBeVisible();
+    await expect(page.locator('.is-selected #step-end-label')).toHaveText('Arrivée test');
     await expect(page.locator('#route-planner-summary')).toContainText('1,9 km');
     await page.fill('#trip-days', '2');
     await expect(page.locator('.route-stage-chip')).toHaveCount(2);
@@ -136,13 +138,47 @@ const fixture = {
 
     await page.click('#route-planner-toggle');
     await page.click('[data-step="start"]');
+    const plannerCard = page.locator('#route-planner-card');
+    const cardBox = await plannerCard.boundingBox();
+    const x = Math.round(cardBox.x + cardBox.width / 2);
+    const y = Math.round(cardBox.y + 12);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + 80 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(plannerCard).toBeHidden();
+    await cdp.detach();
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.click('#route-planner-toggle');
+    await page.click('[data-step="start"]');
+    const wheelBox = await plannerCard.boundingBox();
+    await page.mouse.move(wheelBox.x + wheelBox.width / 2, wheelBox.y + 60);
+    await page.mouse.wheel(0, 1000);
+    await expect.poll(() => plannerCard.evaluate(card => card.scrollTop)).toBeGreaterThan(0);
+    await expect(plannerCard).toBeVisible();
+    await page.waitForTimeout(220);
+    await page.mouse.wheel(0, 100);
+    await expect(plannerCard).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.click('#route-planner-toggle');
+    await expect(page.locator('#step-start-label')).toHaveText('Départ test');
+
     await page.click('[data-action="pick-map"][data-role="start"]');
     await expect(page.locator('#map-pick-prompt')).toBeVisible();
     await expect(page.locator('#route-planner-card')).toBeHidden();
     await page.click('#cancel-map-pick');
     await expect(page.locator('#route-planner-card')).toBeVisible();
+    await page.clock.install();
+    await page.evaluate(() => { window.mockFix.coords.latitude = 48.1; });
     await page.click('#planner-location');
-    await expect(page.locator('#step-start-label')).toHaveText('Ma position');
+    await expect(page.locator('#planner-location-toast')).toContainText('Rejoignez la randonnée');
+    await expect(page.locator('#step-start-label')).toHaveText('Départ test');
+    await expect(page.locator('[data-panel="start"]')).toBeVisible();
+    await page.clock.runFor(6100);
+    await expect(page.locator('#planner-location-toast')).toBeEmpty();
+    await page.evaluate(() => { window.mockFix.coords.latitude = 48; });
+    await page.click('#planner-location');
+    await expect(page.locator('.is-selected #step-start-label')).toHaveText('Ma position');
     await expect(page.locator('[data-panel="end"]')).toBeVisible();
     assert.equal(await page.evaluate(() => window.dispatchEvent(new Event('app-back', { cancelable: true }))), false);
     await expect(page.locator('#route-planner-card')).toBeHidden();
@@ -150,11 +186,10 @@ const fixture = {
     await page.click('#hike-locate');
     await expect(page.locator('#hike-message')).toContainText('refusée');
     await expect(page.locator('#hike-locate')).toBeVisible();
-    console.log('Map pick/cancel, GPS start, back from planner and GPS denial recovery OK');
+    console.log('Planner gestures, selection highlight, temporary off-route notice, map pick/cancel and GPS recovery OK');
     await page.evaluate(() => { window.gpsDenied = false; });
     await page.click('#hike-locate');
     await expect(page.locator('#hike-remaining')).toContainText('km');
-    await page.clock.install();
     await page.evaluate(() => window.gpsFailure({ code: 3 }));
     await expect(page.locator('#hike-message')).toContainText('Nouvelle recherche');
     await expect(page.locator('#hike-stop')).toBeVisible();

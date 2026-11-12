@@ -9,15 +9,20 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
   const startButton = document.getElementById('hike-start');
   const locationButton = document.getElementById('planner-location');
   const locationMessage = document.getElementById('planner-location-message');
+  const locationToast = document.getElementById('planner-location-toast');
   const positionLayer = L.layerGroup().addTo(map);
   const remainingLayer = L.layerGroup().addTo(map);
   let stopWatch = null, wanted = false, active = !document.hidden, position = null;
   let marker = null, accuracyCircle = null, following = false, lastSliceKey = '', ageTimer = null, retryTimer = null;
-  let locationRequest = 0;
+  let locationRequest = 0, locationToastTimer;
   let previousMeters = null, selectionKey = '';
   const access = RouteAccess.createController({ map, geometry: () => state.routeGeometry, beforeFit: () => { following = false; } });
 
   function say(text) { message.textContent = text; message.hidden = !text; }
+  function clearLocationToast() {
+    clearTimeout(locationToastTimer);
+    locationToast.textContent = '';
+  }
   function clearRemaining() { remainingLayer.clearLayers(); lastSliceKey = ''; }
   function updateProgress() {
     const target = state.endSelection;
@@ -133,6 +138,7 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
 
   locationButton.addEventListener('click', async () => {
     const request = ++locationRequest;
+    clearLocationToast();
     locationButton.disabled = true; locationMessage.hidden = false;
     locationMessage.textContent = 'Recherche de votre position…';
     try {
@@ -140,10 +146,19 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
       if (request !== locationRequest || !active) return;
       if (current.coords.accuracy > 100) throw new Error('Position trop imprécise. Réessayez à l’extérieur ou choisissez le départ sur la carte.');
       const match = RouteMath.nearest([current.coords.latitude, current.coords.longitude], state.routeGeometry);
-      if (match.distanceMeters > Math.max(50, current.coords.accuracy * 2)) throw new Error(`Vous êtes à ${Math.round(match.distanceMeters)} m du tracé. Choisissez un point de départ sur la carte ; la marche d’approche n’est pas incluse.`);
-      chooseStart(match);
       locationMessage.hidden = true;
-    } catch (error) { if (request === locationRequest) locationMessage.textContent = VadrouilleLocation.errorMessage(error); }
+      if (match.distanceMeters > Math.max(50, current.coords.accuracy * 2)) {
+        locationToast.textContent = 'Vous êtes trop loin du tracé. Rejoignez la randonnée pour partir de votre position.';
+        locationToastTimer = setTimeout(clearLocationToast, 6000);
+        return;
+      }
+      chooseStart(match);
+    } catch (error) {
+      if (request === locationRequest) {
+        locationMessage.textContent = VadrouilleLocation.errorMessage(error);
+        locationMessage.hidden = false;
+      }
+    }
     finally { if (request === locationRequest) locationButton.disabled = false; }
   });
 
@@ -151,6 +166,7 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
     active = isActive;
     if (!active) {
       locationRequest++; locationButton.disabled = !state.routeGeometry; locationMessage.hidden = true;
+      clearLocationToast();
       suspend(); if (wanted) say('GPS en pause pendant que l’application est en arrière-plan.');
     } else resume();
   }
