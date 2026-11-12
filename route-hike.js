@@ -15,6 +15,7 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
   let marker = null, accuracyCircle = null, following = false, lastSliceKey = '', ageTimer = null, retryTimer = null;
   let locationRequest = 0;
   let previousMeters = null, selectionKey = '';
+  const access = RouteAccess.createController({ map, geometry: () => state.routeGeometry, beforeFit: () => { following = false; } });
 
   function say(text) { message.textContent = text; message.hidden = !text; }
   function clearRemaining() { remainingLayer.clearLayers(); lastSliceKey = ''; }
@@ -53,6 +54,7 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
   function receive(next) {
     if (!next?.coords || !Number.isFinite(next.coords.latitude) || !Number.isFinite(next.coords.longitude)) return;
     position = next;
+    access.update(next);
     const latlng = [next.coords.latitude, next.coords.longitude];
     if (!marker) {
       accuracyCircle = L.circle(latlng, { radius: next.coords.accuracy, color: '#2563eb', fillColor: '#3b82f6', weight: 1, fillOpacity: 0.12, interactive: false, renderer }).addTo(positionLayer);
@@ -68,12 +70,14 @@ window.createHikeController = function ({ map, renderer, state, chooseStart, ope
     if (!state.endSelection) say(`Votre position · précision ±${Math.round(next.coords.accuracy)} m. Préparez une arrivée pour suivre votre étape.`);
     clearTimeout(ageTimer);
     ageTimer = setTimeout(() => {
+      access.update(position);
       updateProgress();
       if (!state.endSelection && wanted) say('Signal GPS ancien. En attente d’une nouvelle position…');
     }, 31000);
   }
 
   function suspend() {
+    access.pause();
     if (stopWatch) stopWatch();
     stopWatch = null;
     clearTimeout(ageTimer);

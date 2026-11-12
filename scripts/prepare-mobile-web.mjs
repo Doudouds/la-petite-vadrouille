@@ -16,6 +16,7 @@ const appEntries = [
   'route-math.js',
   'location.js',
   'route-hike.js',
+  'route-access.js',
   'nearby-routes.json',
   'data.js',
   'gr-metadata.js',

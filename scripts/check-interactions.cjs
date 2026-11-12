@@ -18,6 +18,7 @@ const fixture = {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const errors = [];
   let elevations = 0, nearbyFetches = 0;
+  let accessCalls = 0, routingMode = 'success', releaseRoute, lastAccessUrl;
   page.on('pageerror', error => { errors.push(error.message); console.error(error); });
   await page.addInitScript(() => {
     window.mockFix = { coords: { latitude: 48, longitude: 2, accuracy: 5 }, timestamp: Date.now() };
@@ -35,6 +36,13 @@ const fixture = {
   });
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
+    if (url.hostname === 'brouter.de') {
+      accessCalls++; lastAccessUrl = url;
+      if (routingMode === 'offline') return route.abort();
+      if (routingMode === 'pending') await new Promise(resolve => { releaseRoute = resolve; });
+      const [origin, target] = url.searchParams.get('lonlats').split('|').map(pair => pair.split(',').map(Number));
+      return route.fulfill({ json: { features: [{ geometry: { type: 'LineString', coordinates: [origin, [origin[0], origin[1] + 0.001], [target[0], origin[1] + 0.001], target] }, properties: { 'total-time': '600' } }] } }).catch(() => {});
+    }
     if (url.hostname === 'api.open-meteo.com') {
       elevations++;
       return route.fulfill({ json: { elevation: url.searchParams.get('latitude').split(',').map(() => 100) } });
@@ -53,6 +61,17 @@ const fixture = {
   }
   try {
     await page.goto('http://interaction.test/mobile-web/index.html');
+    await expect(page.locator('#region-map')).toBeVisible();
+    await expect(page.locator('#clear-region')).toBeDisabled();
+    await page.click('[data-region-code="IDF"]');
+    await page.fill('#search', 'GR1');
+    await page.click('#clear-region');
+    await expect(page.locator('#search')).toHaveValue('');
+    await expect(page.locator('#grid .gr-card')).toHaveCount(93);
+    await expect(page.locator('#region-map .active')).toHaveCount(0);
+    await expect(page.locator('#region-map')).toBeVisible();
+    await expect(page.locator('#clear-region')).toBeDisabled();
+    console.log('France map stays expanded; Tout voir resets region and text search OK');
     assert.equal(await page.evaluate(() => window.gpsCalls), 0);
     assert.equal(nearbyFetches, 0);
     await page.evaluate(() => { window.gpsDenied = true; });
@@ -143,6 +162,50 @@ const fixture = {
     await expect(page.locator('#hike-remaining')).toContainText('km');
     await page.click('#hike-stop');
     console.log('Temporary GPS loss automatically retries and recovers OK');
+    await page.evaluate(() => { window.mockFix = { coords: { latitude: 48.005, longitude: 1.99, accuracy: 5 }, timestamp: Date.now() }; });
+    await page.click('#hike-locate');
+    await expect(page.locator('#access-calculate')).toBeEnabled();
+    assert.equal(accessCalls, 0, 'No coordinates sent to routing service before a click');
+    await page.click('#access-calculate');
+    await expect(page.locator('.access-route-line')).toHaveCount(1);
+    await expect(page.locator('#access-status')).toContainText('1,0 km');
+    await expect(page.locator('#access-status')).toContainText('10 min');
+    assert.equal(lastAccessUrl.searchParams.get('profile'), 'hiking-beta');
+    assert.equal(lastAccessUrl.searchParams.get('lonlats').split('|')[1], '2.000000,48.005000', 'Closest point on the actual trail');
+    await expect(page.locator('#access-maps')).toHaveAttribute('href', /destination=48.005.*travelmode=walking/);
+    await gps(48.0051, 1.99);
+    assert.equal(accessCalls, 1, 'GPS updates do not continuously send requests');
+    await gps(48.008, 1.99);
+    await expect(page.locator('.access-route-line')).toHaveCount(0);
+    await expect(page.locator('#access-status')).toContainText('changé de position');
+    await gps(48.005, 1.99, 500);
+    await expect(page.locator('#access-calculate')).toBeDisabled();
+    await gps(48.005, 1.99, 5, 40000);
+    await expect(page.locator('#access-calculate')).toBeDisabled();
+    await gps(48.005, 2);
+    await page.click('#access-calculate');
+    await expect(page.locator('#access-status')).toContainText('déjà à proximité');
+    assert.equal(accessCalls, 1, 'Already on trail: no network request');
+    await gps(48.005, 1.99);
+    routingMode = 'offline';
+    await page.click('#access-calculate');
+    await expect(page.locator('#access-status')).toContainText('Connexion indisponible');
+    await expect(page.locator('#access-maps')).toBeVisible();
+    await expect(page.locator('.access-route-line')).toHaveCount(0);
+    routingMode = 'pending';
+    await page.click('#access-calculate');
+    await expect.poll(() => Boolean(releaseRoute)).toBe(true);
+    await page.click('#access-clear');
+    releaseRoute();
+    await expect(page.locator('#access-calculate')).toBeEnabled();
+    await expect(page.locator('.access-route-line')).toHaveCount(0);
+    routingMode = 'success';
+    await page.click('#access-calculate');
+    await expect(page.locator('.access-route-line')).toHaveCount(1);
+    await page.click('#hike-stop');
+    await expect(page.locator('#route-access')).toBeHidden();
+    await expect(page.locator('.access-route-line')).toHaveCount(0);
+    console.log('Pedestrian access: nearest point, orange path, opt-in, movement, precision, offline fallback, cancellation and stop OK');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

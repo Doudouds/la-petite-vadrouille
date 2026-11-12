@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20261112-hiking-1';
+const CACHE_VERSION = '20261112-access-1';
 const SHELL_CACHE = `gr-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `gr-data-${CACHE_VERSION}`;
 const CDN_CACHE = `gr-cdn-${CACHE_VERSION}`;
@@ -11,6 +11,7 @@ const APP_SHELL = [
   '/route-math.js',
   '/location.js',
   '/route-hike.js',
+  '/route-access.js',
   '/pwa.js',
   '/privacy.html',
   '/data.js',
@@ -28,6 +29,7 @@ const APP_SHELL = [
 const APP_SHELL_PATHS = new Set(APP_SHELL);
 const CDN_HOSTS = new Set(['unpkg.com']);
 const PASSTHROUGH_HOSTS = new Set([
+  'brouter.de',
   'api.open-meteo.com',
   'overpass.kumi.systems',
   'overpass.openstreetmap.fr',

@@ -2148,12 +2148,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 button:focus-visible, .nearby-card:focus-visible { outline: 3px solid #d68b45; outline-offset: 3px; }
 .nearby-panel { border-radius: 20px; background: #f0f5ef; border: 1px solid #dce7db; padding: 1.25rem; margin-bottom: 1.5rem; }
 .catalog-layout > .nearby-panel { grid-column: 1 / -1; margin-bottom: 0; }
-.region-card > summary { list-style: none; cursor: pointer; }
-.region-card > summary::-webkit-details-marker { display: none; }
-.region-card > summary::after { content: '⌄'; color: #19483b; font-size: 1.2rem; }
-.region-card[open] > summary::after { content: '⌃'; }
-.region-card:not([open]) .region-card-header p { display: none; }
-.region-card:not([open]) .region-card-header h2 { margin: 0; }
 .nearby-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .nearby-heading h2 { margin: 0; font-size: 1.4rem; color: #19483b; }
 #nearby-status { font-size: 0.88rem; color: #526357; line-height: 1.5; }
@@ -2179,6 +2173,11 @@ button:focus-visible, .nearby-card:focus-visible { outline: 3px solid #d68b45; o
 .hike-panel { margin-bottom: 0.5rem; max-width: 560px; }
 .hike-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
 .hike-message { font-size: 0.78rem; line-height: 1.4; margin: 0.4rem 0; max-width: 52ch; }
+.route-access { border-top: 1px solid #e3dfd5; padding-top: 0.4rem; margin-top: 0.4rem; }
+.access-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+.access-button { background: #a44912; }
+.access-maps { display: inline-block; color: #8b3e12; font-size: 0.8rem; padding: 0.6rem 0; min-height: 44px; box-sizing: border-box; }
+.access-status { font-size: 0.76rem; line-height: 1.4; margin: 0.35rem 0; }
 .hike-progress { display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; background: #f5eee3; border-radius: 12px; padding: 0.6rem 0.75rem; margin: 0.5rem 0; }
 .hike-progress strong { display: block; font-size: 1.6rem; color: #19483b; }
 .hike-progress span { display: block; font-size: 0.78rem; overflow-wrap: anywhere; }
@@ -2205,6 +2204,7 @@ button:focus-visible, .nearby-card:focus-visible { outline: 3px solid #d68b45; o
   .nearby-distance { grid-column: 2; }
   .route-page:has(.route-planner.is-collapsed) { grid-template-columns: minmax(0, 1fr); }
   .route-page .route-planner.is-collapsed { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+  .route-page .route-planner.is-collapsed { max-height: 48dvh; overflow-y: auto; }
   .hike-panel { margin: 0; max-width: none; }
   .hike-actions .primary-button { flex: 1; }
   .route-page .route-planner-toggle { min-height: 44px; padding: 0.6rem; }

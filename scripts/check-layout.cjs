@@ -44,6 +44,8 @@ const root = path.resolve(__dirname, '..');
     for (const [width, height] of [[320, 568], [390, 844], [720, 480], [844, 390], [1024, 768], [1440, 900]]) {
       await page.setViewportSize({ width, height });
       await page.goto('http://layout.test/mobile-web/index.html');
+      assert(await page.locator('#region-map').isVisible(), `France map always expanded at ${width}`);
+      assert((await page.locator('#region-map').boundingBox()).height > 200, `France map full size at ${width}`);
       await check(['.nearby-panel', '.region-panel', '.list-panel', '.site-header'], `home ${width}`);
       await page.goto('http://layout.test/mobile-web/gr.html?ref=GR1');
       await page.waitForFunction(() => document.querySelector('#status').textContent.includes('km'));

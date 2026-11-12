@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=20261112" />
+  <link rel="stylesheet" href="style.css?v=20261112-access-1" />
 </head>
 <body class="route-page">
   <header class="site-header site-header-route">
@@ -50,6 +50,14 @@
         <button type="button" id="hike-stop" class="text-button" hidden>Arrêter le GPS</button>
       </div>
       <p id="hike-message" class="hike-message" role="status" hidden></p>
+      <div id="route-access" class="route-access" hidden>
+        <div class="access-actions">
+          <button type="button" id="access-calculate" class="primary-button access-button">Itinéraire vers le sentier</button>
+          <button type="button" id="access-clear" class="text-button" hidden>Effacer</button>
+        </div>
+        <p id="access-status" class="access-status" role="status">Approche à pied · calcul en ligne avec BRouter.</p>
+        <a id="access-maps" class="access-maps" target="_blank" rel="noopener noreferrer" hidden>Ouvrir dans Google Maps ↗</a>
+      </div>
       <div id="hike-progress" class="hike-progress" hidden>
         <div><strong id="hike-remaining">—</strong><span id="hike-destination"></span></div>
         <button type="button" id="hike-target" class="text-button">Changer l’arrivée</button>
@@ -131,7 +139,8 @@
   <script src="stations-sncf.js?v=20260501"></script>
   <script src="route-math.js?v=20261112"></script>
   <script src="location.js?v=20261112"></script>
-  <script src="route-hike.js?v=20261112"></script>
+  <script src="route-access.js?v=20261112-access-1"></script>
+  <script src="route-hike.js?v=20261112-access-1"></script>
   <script src="pwa.js?v=20261112"></script>
   <script>
     const params = new URLSearchParams(location.search);

@@ -9,7 +9,6 @@
   const clearSearchButton = document.getElementById('clear-search');
   const routeCount = document.getElementById('route-count');
   const regionMap = document.getElementById('region-map');
-  document.getElementById('region-filter').open = window.matchMedia('(min-width: 981px)').matches;
 
   const REGION_DEFS = window.FRANCE_REGION_DEFS || [];
   const REGION_CACHE = window.GR_REGION_CACHE?.regions || {};
@@ -214,6 +213,10 @@
   function render() {
     const searchText = state.search.trim().toLowerCase();
     const selectedRegion = getSelectedRegion();
+    clearRegionButton.disabled = !selectedRegion && !state.search;
+    clearRegionButton.title = clearRegionButton.disabled
+      ? 'Tous les sentiers sont déjà affichés'
+      : 'Effacer la région et la recherche pour afficher tous les sentiers';
     const filteredRoutes = baseRoutes.filter(route => {
       if (searchText && !route.searchText.includes(searchText)) {
         return false;
@@ -290,9 +293,12 @@
     event.stopPropagation();
     state.selectedRegionCode = null;
     state.regionRefs = null;
-    setRegionStatus('Cliquez sur une région pour filtrer la liste depuis le cache local.');
+    state.search = '';
+    search.value = '';
+    setRegionStatus(`Les ${baseRoutes.length} sentiers sont affichés. Choisissez une région pour filtrer à nouveau.`);
     renderRegionMap();
     render();
+    resultsMeta.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   setRegionStatus(
