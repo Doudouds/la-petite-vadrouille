@@ -1,5 +1,5 @@
 param(
-    [string]$LogoPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'logo-v2.png'),
+    [string]$LogoPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'logo-v3.png'),
     [string]$AndroidResDir = (Join-Path (Split-Path $PSScriptRoot -Parent) 'android\app\src\main\res'),
     [string]$PlayStoreDir = (Join-Path (Split-Path $PSScriptRoot -Parent) 'play-store\assets')
 )

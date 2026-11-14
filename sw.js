@@ -1,5 +1,5 @@
 const CACHE_VERSION = '20261112-access-1';
-const SHELL_CACHE = 'gr-shell-20261114-logo-1';
+const SHELL_CACHE = 'gr-shell-20261114-logo-2';
 const DATA_CACHE = `gr-data-${CACHE_VERSION}`;
 const CDN_CACHE = `gr-cdn-${CACHE_VERSION}`;
 
@@ -20,7 +20,7 @@ const APP_SHELL = [
   '/gr-region-cache.js',
   '/gr-route-cache-manifest.js',
   '/stations-sncf.js',
-  '/logo-v2.png',
+  '/logo-v3.png',
   '/site-logo.svg',
   '/manifest.webmanifest',
   '/offline.html'
