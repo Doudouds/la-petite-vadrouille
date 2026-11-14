@@ -13,15 +13,9 @@
   "categories": ["travel", "navigation", "sports"],
   "icons": [
     {
-      "src": "./logo.png",
+      "src": "./logo-v2.png",
       "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./site-logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]

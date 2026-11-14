@@ -24,7 +24,7 @@ const appEntries = [
   'gr-region-cache.js',
   'gr-route-cache-manifest.js',
   'stations-sncf.js',
-  'logo.png',
+  'logo-v2.png',
   'site-logo.svg',
   'manifest.webmanifest',
   'pwa.js',
